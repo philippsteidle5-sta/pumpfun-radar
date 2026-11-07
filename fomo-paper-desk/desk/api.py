@@ -8,6 +8,8 @@ from collections.abc import AsyncIterator
 
 from pathlib import Path
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse, Response
 from pydantic import BaseModel, Field
@@ -44,12 +46,34 @@ class ProbeBody(BaseModel):
     mint: str
 
 
+class BridgeJobBody(BaseModel):
+    role: str
+    kind: str
+    idempotency_key: str
+    subject: str | None = None
+    payload: dict | None = None
+
+
+class BridgeResultBody(BaseModel):
+    ok: bool
+    summary: str
+    correlation_id: str
+
+
 def create_app(desk, app_token: str) -> FastAPI:
     if not app_token or len(app_token) < 8:
         raise RuntimeError("APP_TOKEN is missing")
     if app_token not in desk.secrets:
         desk.secrets.append(app_token)
-    app = FastAPI(title="FOMO paper desk", docs_url=None, redoc_url=None, openapi_url=None)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        from desk.bridge import open_connection_checks
+
+        await open_connection_checks(desk)
+        yield
+
+    app = FastAPI(title="FOMO paper desk", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.desk = desk
     app.state.token = app_token
     static_dir = Path(__file__).resolve().parent / "static"
@@ -71,12 +95,15 @@ def create_app(desk, app_token: str) -> FastAPI:
         headers = {key: value for key, value in response.headers.items() if key.lower() != "content-length"}
         return JSONResponse(content=json.loads(cleaned), status_code=response.status_code, headers=headers)
 
-    def authorize(request: Request) -> None:
+    def presented_token(request: Request) -> str:
         header = request.headers.get("authorization", "")
-        if not header.startswith("Bearer "):
+        if not header.startswith("Bearer ") or not header[7:]:
             raise HTTPException(status_code=401, detail="unauthorized")
-        presented = header[7:]
-        if not secrets.compare_digest(presented.encode(), app_token.encode()):
+        return header[7:]
+
+    def authorize(request: Request) -> None:
+        presented = presented_token(request)
+        if len(presented) != len(app_token) or not secrets.compare_digest(presented.encode(), app_token.encode()):
             raise HTTPException(status_code=401, detail="unauthorized")
 
     @app.exception_handler(SettingsError)
@@ -279,6 +306,62 @@ def create_app(desk, app_token: str) -> FastAPI:
             raise HTTPException(status_code=422, detail="endpoint must be https")
         desk.db.add_push_sub(body.endpoint, body.p256dh, body.auth, iso_utc(desk.now()))
         return {"stored": True, "sent": False}
+
+    @app.get("/api/bridge")
+    def bridge_state(request: Request):
+        authorize(request)
+        from desk.bridge import bridge_view
+
+        return bridge_view(desk)
+
+    @app.post("/api/bridge/connection-check")
+    async def bridge_connect(request: Request):
+        authorize(request)
+        from desk.bridge import open_connection_checks
+
+        return await open_connection_checks(desk)
+
+    @app.post("/api/bridge/jobs")
+    async def bridge_job_create(body: BridgeJobBody, request: Request):
+        authorize(request)
+        from desk.bridge import enqueue
+
+        try:
+            return await enqueue(
+                desk,
+                role=body.role,
+                kind=body.kind,
+                idempotency_key=body.idempotency_key,
+                subject=body.subject,
+                payload=body.payload,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+
+    @app.get("/api/bridge/jobs/{job_id}")
+    def bridge_job_fetch(job_id: str, request: Request):
+        from desk.bridge import claim, role_authorized
+
+        presented = presented_token(request)
+        row = desk.db.bridge_job(job_id)
+        if row is None or not role_authorized(presented, row["role"], app_token):
+            raise HTTPException(status_code=401, detail="unauthorized")
+        return claim(desk, job_id)
+
+    @app.post("/api/bridge/jobs/{job_id}/result")
+    def bridge_job_result(job_id: str, body: BridgeResultBody, request: Request):
+        from desk.bridge import acknowledge, role_authorized
+
+        presented = presented_token(request)
+        row = desk.db.bridge_job(job_id)
+        if row is None or not role_authorized(presented, row["role"], app_token):
+            raise HTTPException(status_code=401, detail="unauthorized")
+        try:
+            return acknowledge(desk, job_id, ok=body.ok, summary=body.summary, correlation_id=body.correlation_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        except KeyError:
+            raise HTTPException(status_code=401, detail="unauthorized") from None
 
     @app.get("/api/stream")
     def stream(request: Request):

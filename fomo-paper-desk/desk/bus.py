@@ -41,6 +41,26 @@ class RateCoordinator:
         self.throttled_429 += 1
         self.backoff_until = self.clock.now() + self.backoff
 
+    def block_reason(self) -> str | None:
+        """Why acquire would fail now. HTTP 429 cooldown is not the local request budget."""
+        now = self.clock.now()
+        if self.backoff_until is not None and now < self.backoff_until:
+            return "upstream_429"
+        self._trim(now)
+        if len(self.stamps) >= self.limit:
+            return "local_budget"
+        return None
+
+    def next_allowed_at(self) -> datetime | None:
+        now = self.clock.now()
+        waits = []
+        if self.backoff_until is not None and self.backoff_until > now:
+            waits.append(self.backoff_until)
+        self._trim(now)
+        if len(self.stamps) >= self.limit and self.stamps:
+            waits.append(self.stamps[0] + self.window)
+        return max(waits) if waits else None
+
 
 class Bus:
     def __init__(self):

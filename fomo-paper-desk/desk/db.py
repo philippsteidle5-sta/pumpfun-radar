@@ -219,6 +219,23 @@ CREATE TABLE IF NOT EXISTS heartbeats (
     detail TEXT
 );
 
+CREATE TABLE IF NOT EXISTS bridge_jobs (
+    id TEXT PRIMARY KEY,
+    role TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL,
+    subject TEXT,
+    payload_json TEXT NOT NULL,
+    result_json TEXT,
+    created_at TEXT NOT NULL,
+    dispatched_at TEXT,
+    dispatch_status INTEGER,
+    dispatch_error TEXT,
+    claimed_at TEXT,
+    acked_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS push_subs (
     endpoint TEXT PRIMARY KEY,
     p256dh TEXT NOT NULL,
@@ -615,6 +632,96 @@ class Database:
         with self._lock:
             rows = self.con.execute("SELECT agent, ts, status, detail FROM heartbeats").fetchall()
         return {row["agent"]: dict(row) for row in rows}
+
+    def ensure_bridge_job(self, **fields) -> dict:
+        with self._lock:
+            existing = self.con.execute(
+                "SELECT * FROM bridge_jobs WHERE idempotency_key = ?",
+                (fields["idempotency_key"],),
+            ).fetchone()
+            if existing is not None:
+                return dict(existing)
+            self.con.execute(
+                """
+                INSERT INTO bridge_jobs (
+                    id, role, kind, idempotency_key, status, subject, payload_json, created_at
+                ) VALUES (?, ?, ?, ?, 'queued', ?, ?, ?)
+                """,
+                (
+                    fields["id"],
+                    fields["role"],
+                    fields["kind"],
+                    fields["idempotency_key"],
+                    fields.get("subject"),
+                    fields["payload_json"],
+                    fields["created_at"],
+                ),
+            )
+            row = self.con.execute("SELECT * FROM bridge_jobs WHERE id = ?", (fields["id"],)).fetchone()
+        return dict(row)
+
+    def bridge_job(self, job_id: str) -> dict | None:
+        with self._lock:
+            row = self.con.execute("SELECT * FROM bridge_jobs WHERE id = ?", (job_id,)).fetchone()
+        return dict(row) if row else None
+
+    def bridge_jobs(self, limit: int = 30) -> list[dict]:
+        with self._lock:
+            rows = self.con.execute(
+                """
+                SELECT id, role, kind, status, subject, created_at, dispatched_at, dispatch_status,
+                       dispatch_error, claimed_at, acked_at
+                FROM bridge_jobs ORDER BY created_at DESC LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def claim_bridge_job(self, job_id: str, now: str) -> dict | None:
+        with self._lock:
+            row = self.con.execute("SELECT * FROM bridge_jobs WHERE id = ?", (job_id,)).fetchone()
+            if row is None:
+                return None
+            if row["acked_at"] is None and row["status"] in {"queued", "dispatched", "failed"}:
+                self.con.execute(
+                    "UPDATE bridge_jobs SET status = 'claimed', claimed_at = COALESCE(claimed_at, ?) WHERE id = ?",
+                    (now, job_id),
+                )
+            updated = self.con.execute("SELECT * FROM bridge_jobs WHERE id = ?", (job_id,)).fetchone()
+        return dict(updated)
+
+    def ack_bridge_job(self, job_id: str, *, ok: bool, result_json: str, now: str) -> dict | None:
+        with self._lock:
+            row = self.con.execute("SELECT * FROM bridge_jobs WHERE id = ?", (job_id,)).fetchone()
+            if row is None:
+                return None
+            self.con.execute(
+                """
+                UPDATE bridge_jobs
+                SET status = ?, result_json = ?, acked_at = ?
+                WHERE id = ?
+                """,
+                ("acked" if ok else "failed", result_json, now, job_id),
+            )
+            updated = self.con.execute("SELECT * FROM bridge_jobs WHERE id = ?", (job_id,)).fetchone()
+        return dict(updated)
+
+    def mark_bridge_dispatch(self, job_id: str, *, http_status: int | None, error: str | None, now: str) -> dict | None:
+        with self._lock:
+            row = self.con.execute("SELECT * FROM bridge_jobs WHERE id = ?", (job_id,)).fetchone()
+            if row is None or row["acked_at"] is not None:
+                return None if row is None else dict(row)
+            status = "dispatched" if http_status is not None and 200 <= http_status < 300 else "failed"
+            self.con.execute(
+                """
+                UPDATE bridge_jobs
+                SET status = ?, dispatched_at = ?, dispatch_status = ?, dispatch_error = ?
+                WHERE id = ? AND acked_at IS NULL
+                """,
+                (status, now, http_status, None if not error else error[:160], job_id),
+            )
+            updated = self.con.execute("SELECT * FROM bridge_jobs WHERE id = ?", (job_id,)).fetchone()
+        return dict(updated)
 
     def add_scan(self, **fields) -> int:
         with self._lock:
@@ -1365,6 +1472,27 @@ class Database:
                 (mint,),
             ).fetchone()
         return dict(row) if row else None
+
+    def recent_scans(self, limit: int = 12) -> list[dict]:
+        with self._lock:
+            rows = self.con.execute(
+                """
+                SELECT mint, ts, verdict, reason, liquidity_usd, top10_pct, h1_change_pct, age_min
+                FROM scans ORDER BY id DESC LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def latest_source_captures(self) -> list[dict]:
+        with self._lock:
+            rows = self.con.execute(
+                """
+                SELECT source, url, status, error, ts FROM raw_captures
+                WHERE id IN (SELECT MAX(id) FROM raw_captures GROUP BY source)
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def add_raw(self, **fields) -> int:
         body = fields.get("body")

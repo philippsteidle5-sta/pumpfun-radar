@@ -116,6 +116,34 @@ def _analyst(layers: list[dict], verdict: dict | None, offset: int) -> dict:
     }
 
 
+def _stage(check: dict) -> dict:
+    scanner = check["scanner"]
+    verdict = scanner.get("verdict")
+    if verdict in {None, "wait", "pending"}:
+        return {"name": "scanner", "state": "pending", "reason": scanner.get("reason") or "awaiting dex read"}
+    if verdict in {"kill", "reject"}:
+        return {"name": "scanner", "state": "reject", "reason": scanner.get("reason") or "scanner rejected"}
+    rejected = [layer for layer in check["layers"] if layer["status"] == "rejected"]
+    if rejected:
+        return {"name": "auditor", "state": "reject", "reason": rejected[0].get("value") or rejected[0].get("name")}
+    pending = [layer for layer in check["layers"] if layer["status"] == "not_checked"]
+    if pending or verdict == "context":
+        reason = check.get("note") or "auditor incomplete"
+        return {"name": "auditor", "state": "pending", "reason": reason}
+    analyst = check["analyst"]
+    if not analyst.get("ran"):
+        return {"name": "analyst", "state": "pending", "reason": analyst.get("reason") or "waiting for auditor 8/8"}
+    if analyst.get("status") == "rejected":
+        return {"name": "analyst", "state": "reject", "reason": analyst.get("reason") or "analyst rejected"}
+    if check.get("on_desk"):
+        return {
+            "name": "executor",
+            "state": "unconnected",
+            "reason": "paper ledger row only; not a FOMO fill and not a connected bot",
+        }
+    return {"name": "executor", "state": "unconnected", "reason": "live FOMO orders are unconnected"}
+
+
 def build_monitor(desk) -> dict:
     settings = desk.settings()
     offset = int(settings["desk.owner_utc_offset_hours"])
@@ -163,10 +191,16 @@ def build_monitor(desk) -> dict:
                 "paper": True,
             }
         )
-    waiting = [
-        {"mint": mint, "since": _owner(desk.db.coin(mint).get("migrated_at") if desk.db.coin(mint) else None, offset)}
-        for mint in desk.waiting
-    ]
+    observed = desk.observability()
+    for item in observed["waiting"]:
+        item["since"] = _owner(item.get("since"), offset)
+        item["seen_at"] = item["since"]
+        if item.get("scan_ts"):
+            item["scan_ts"] = _owner(item["scan_ts"], offset)
+    for row in observed["recent_scans"]:
+        row["ts"] = _owner(row.get("ts"), offset)
+    for check in checks:
+        check["stage"] = _stage(check)
     return {
         "mode": "PAPER",
         "trading": "PAPER",
@@ -178,8 +212,9 @@ def build_monitor(desk) -> dict:
         "connection": connection,
         "connection_detail": feed.get("detail"),
         "connection_error": feed.get("error"),
-        "waiting": waiting,
-        "empty": not checks and not waiting,
+        "waiting": observed["waiting"],
+        "search": observed,
+        "empty": not checks and not observed["waiting"],
         "empty_text": "Warte auf eine Migration. Noch keine Münze geprüft.",
         "checks": list(reversed(checks)),
         "agents": desk.state()["agents"],

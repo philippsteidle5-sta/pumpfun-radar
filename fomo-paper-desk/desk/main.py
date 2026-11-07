@@ -62,7 +62,19 @@ def _force_paper(db: Database, now: datetime) -> None:
 
 def _secrets() -> list[str]:
     found = []
-    for key in ("APP_TOKEN", "TG_TOKEN", "TELEGRAM_TOKEN", "TYPESAFE_API_KEY"):
+    for key in (
+        "APP_TOKEN",
+        "TG_TOKEN",
+        "TELEGRAM_TOKEN",
+        "TYPESAFE_API_KEY",
+        "GROK_BOT_WEBHOOK_KEY",
+        "GROK_ROLE_TOKEN_SCANNER",
+        "GROK_ROLE_TOKEN_AUDITOR",
+        "GROK_ROLE_TOKEN_ANALYST",
+        "GROK_ROLE_TOKEN_EXECUTOR",
+        "GROK_ROLE_TOKEN_RISK",
+        "FOMOSCAN_KEY",
+    ):
         value = os.environ.get(key)
         if value:
             found.append(value)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
+from urllib.parse import urlsplit
 
 from desk import CHUNK_ALLOWS_LIVE
 from desk.agents import AGENTS
@@ -35,6 +36,10 @@ from desk.config import (
 from desk.db import Database
 from desk.fees import GAS_MODEL, FeeModelError, close_economics
 from desk.fields import (
+    DEX_URL_PREFIX,
+    PUMP_WS_URL,
+    RUGCHECK_GRAPH,
+    RUGCHECK_REPORT,
     TOKEN_2022_PROGRAM,
     TOKEN_PROGRAM,
     Top10,
@@ -51,7 +56,7 @@ from desk.links import SIGNUP_URL, coin_url, profile_url
 from desk.logging_setup import configure_logging
 from desk.money import D, cents, fmt_money, fmt_pct, iso_utc
 from desk.notifier import DryRunNotifier, buy_text, message
-from desk.sources import OfflineSources, RateLimitError
+from desk.sources import OfflineError, OfflineSources, RateLimitError, SourceFailure
 
 log = logging.getLogger("desk.desk")
 
@@ -95,6 +100,10 @@ class Desk:
         self.held_executor: list[str] = []
         self.paused = {name: False for name in AGENTS}
         self.last_poll = {"scanner": None, "risk": None, "api": None}
+        self.scanner_report = {"status": "starting", "detail": "not polled yet"}
+        self.market_reads = {
+            "dex": _blank_read(DEX_URL_PREFIX + "{mints}"),
+        }
         self.feed = {
             "closed": False,
             "open_seen": False,
@@ -319,14 +328,25 @@ class Desk:
             return
         mints = list(self.waiting)
         if not mints:
-            self.db.heartbeat("scanner", self.now(), "idle", "warte auf Migration")
+            feed = self.feed.get("detail") or "no migration frame yet"
+            self._beat_scanner("idle", f"waiting for a PumpPortal migration · {feed}")
             return
-        if not self._due("scanner", int(settings["scanner.poll_s"])):
+        poll_s = int(settings["scanner.poll_s"])
+        if not self._due("scanner", poll_s):
+            nxt = iso_utc(self._next_scan_at(poll_s))
+            self.db.heartbeat(
+                "scanner",
+                self.now(),
+                self.scanner_report["status"],
+                f"{self.scanner_report['detail']}; next scan {nxt}",
+            )
             return
         self.last_poll["scanner"] = self.now()
-        payload = await self._dex_batch(mints)
+        read = await self._dex_read(mints)
+        payload = read["rows"]
         if payload is None:
-            self.db.heartbeat("scanner", self.now(), "backoff", "dex 429 or rate limit; room kept")
+            status = "backoff" if read["kind"] in {"upstream_429", "local_budget"} else "error"
+            self._beat_scanner(status, f"{read['detail']}; room kept")
             return
         nid = self.night()
         for mint in mints:
@@ -411,7 +431,7 @@ class Desk:
                         scanner_price=str(pair.price_usd) if pair.price_usd is not None else None,
                     )
                 self.bus.put_audit(mint)
-        self.db.heartbeat("scanner", self.now(), "running", f"room {len(self.waiting)}")
+        self._beat_scanner("running", f"evaluated {len(mints)}; room {len(self.waiting)}")
 
     async def drain(self) -> None:
         audit_batch = _drain_queue(self.bus.audit)
@@ -422,8 +442,10 @@ class Desk:
             for mint in self.held_audit + audit_batch:
                 await self.audit_mint(mint)
             self.held_audit.clear()
-            if audit_batch or self.last_audit:
-                self.db.heartbeat("auditor", self.now(), "running", "")
+            if audit_batch:
+                self.db.heartbeat("auditor", self.now(), "running", f"checked {len(audit_batch)}")
+            else:
+                self.db.heartbeat("auditor", self.now(), "idle", "waiting for a scanner pass")
         analyst_batch = _drain_queue(self.bus.analyst)
         if self.paused["analyst"]:
             self.held_analyst.extend(analyst_batch)
@@ -432,6 +454,8 @@ class Desk:
             for mint in self.held_analyst + analyst_batch:
                 await self.analyze_mint(mint)
             self.held_analyst.clear()
+            if not analyst_batch:
+                self.db.heartbeat("analyst", self.now(), "idle", "waiting for auditor 8/8")
         exec_batch = _drain_queue(self.bus.executor)
         if self.paused["executor"]:
             self.held_executor.extend(exec_batch)
@@ -440,6 +464,8 @@ class Desk:
             for mint in self.held_executor + exec_batch:
                 await self.execute_mint(mint)
             self.held_executor.clear()
+            if not exec_batch:
+                self.db.heartbeat("executor", self.now(), "idle", "waiting for an analyst pass")
 
     async def audit_mint(self, mint: str) -> dict | None:
         nid = self.night()
@@ -978,10 +1004,12 @@ class Desk:
             return
         positions = actionable
         mints = [row["mint"] for row in positions]
-        payload = await self._dex_batch(mints)
+        read = await self._dex_read(mints)
+        payload = read["rows"]
         if payload is None:
-            self.db.heartbeat("risk", self.now(), "backoff", "dex 429; missed poll, strikes unchanged")
-            logging.getLogger("desk.risk").info("%s missed poll dex429", iso_utc(self.now()))
+            status = "backoff" if read["kind"] in {"upstream_429", "local_budget"} else "error"
+            self.db.heartbeat("risk", self.now(), status, f"{read['detail']}; missed poll, strikes unchanged")
+            logging.getLogger("desk.risk").info("%s missed poll %s", iso_utc(self.now()), read["kind"])
             return
         for position in positions:
             await self._risk_one(position, select_pumpswap_pair(payload, position["mint"]), settings)
@@ -1329,26 +1357,47 @@ class Desk:
             self.db.claim_writer(mint, "api")
 
     async def _dex_batch(self, mints: list[str]):
+        return (await self._dex_read(mints))["rows"]
+
+    async def _dex_read(self, mints: list[str]) -> dict:
+        """One Dex read. A local budget miss is not recorded as an upstream HTTP 429."""
         rows = []
+        kind = "ok"
+        detail = f"dex ok · {len(mints)} mint{'s' if len(mints) != 1 else ''}"
+        status = 200
         try:
             for offset in range(0, len(mints), 30):
                 chunk = mints[offset : offset + 30]
-                if not self.rate.acquire():
-                    return None
-                try:
-                    part = await self.sources.dex_tokens(chunk)
-                except RateLimitError:
-                    self.rate.note_429()
-                    logging.getLogger("desk.scanner").info("%s dex 429 backoff 30s", iso_utc(self.now()))
-                    return None
+                part = await self.sources.dex_tokens(chunk)
                 if isinstance(part, list):
                     rows.extend(part)
                 elif isinstance(part, dict):
                     rows.append(part)
-            return rows
         except Exception as exc:
-            logging.getLogger("desk.desk").info("dex read failed %s", type(exc).__name__)
-            return None
+            classified = _classify_source_error(exc)
+            kind = classified["kind"]
+            detail = classified["detail"]
+            status = classified["status"]
+            if kind == "upstream_429" and self.rate.backoff_until is not None:
+                detail = f"{detail}; cooldown until {iso_utc(self.rate.backoff_until)}"
+            elif kind == "local_budget":
+                retry = self.rate.next_allowed_at()
+                if retry is not None:
+                    detail = f"{detail}; retry after {iso_utc(retry)}"
+            logging.getLogger("desk.scanner").info("%s dex %s %s", iso_utc(self.now()), kind, detail)
+            rows = None
+        stamp = iso_utc(self.now())
+        previous_ok = self.market_reads["dex"].get("ok_at")
+        self.market_reads["dex"] = {
+            "url": DEX_URL_PREFIX + "{mints}",
+            "kind": kind,
+            "detail": detail,
+            "status": status,
+            "at": stamp,
+            "ok_at": stamp if rows is not None else previous_ok,
+            "next_at": iso_utc(self._next_scan_at(int(self.settings()["scanner.poll_s"]))),
+        }
+        return {"rows": rows, "kind": kind, "detail": detail, "status": status}
 
     def _remember_pair(self, mint: str, pair, writer: str) -> None:
         owner = self.db.writer_of(mint)
@@ -1415,6 +1464,142 @@ class Desk:
         if self.db.writer_of(mint) == "risk":
             self.db.release_writer(mint)
 
+    def _beat_scanner(self, status: str, detail: str) -> None:
+        self.scanner_report = {"status": status, "detail": detail}
+        self.db.heartbeat("scanner", self.now(), status, detail)
+
+    def _next_scan_at(self, poll_s: int) -> datetime:
+        last = self.last_poll["scanner"]
+        scheduled = self.now() if last is None else last + timedelta(seconds=poll_s)
+        allowed = self.rate.next_allowed_at()
+        if allowed is not None and allowed > scheduled:
+            return allowed
+        return scheduled
+
+    def _role_queue(self, name: str) -> int:
+        if name == "scanner":
+            return len(self.waiting)
+        if name == "auditor":
+            return self.bus.audit.qsize() + len(self.held_audit)
+        if name == "analyst":
+            return self.bus.analyst.qsize() + len(self.held_analyst)
+        if name == "executor":
+            return self.bus.executor.qsize() + len(self.held_executor)
+        if name == "risk":
+            return len(self.db.open_positions())
+        return 0
+
+    def _feed_view(self) -> dict:
+        last = self.feed["last_rx"]
+        age = None if last is None else round((self.now() - last).total_seconds(), 1)
+        fresh = bool(
+            self.feed["open_seen"]
+            and not self.feed["closed"]
+            and not self.feed["error"]
+            and age is not None
+            and age < 120
+        )
+        return {
+            "fresh": fresh,
+            "age_s": age,
+            "last_frame": None if last is None else iso_utc(last),
+            "open_seen": bool(self.feed["open_seen"]),
+            "closed": bool(self.feed["closed"]),
+            "error": self.feed["error"],
+            "detail": self.feed["detail"],
+            "reconnect_attempt": self.feed["attempt"],
+            "label": "migration feed fresh" if fresh else "no fresh migration frame",
+        }
+
+    def observability(self) -> dict:
+        settings = self.settings()
+        poll_s = int(settings["scanner.poll_s"])
+        captures = {row["source"]: row for row in self.db.latest_source_captures()}
+        dex = dict(self.market_reads["dex"])
+        sources = [
+            _source_row("PumpPortal migrations", PUMP_WS_URL, captures.get("pumpportal"), feed=self._feed_view()),
+            _source_row("DexScreener tokens", DEX_URL_PREFIX + "{mints}", captures.get("dex"), read=dex),
+            _source_row("RugCheck report", RUGCHECK_REPORT, captures.get("rugcheck_report")),
+            _source_row("RugCheck graph", RUGCHECK_GRAPH, captures.get("rugcheck_graph")),
+            _source_row("Solana RPC", _public_url(str(settings["desk.rpc_url"])) or "rpc", captures.get("rpc")),
+        ]
+        waiting = []
+        for mint, item in self.waiting.items():
+            coin = self.db.coin(mint) or {}
+            scan = self.db.latest_scan(mint) or {}
+            seen = item.get("seen_at")
+            waiting.append(
+                {
+                    "mint": mint,
+                    "name": coin.get("name"),
+                    "symbol": coin.get("symbol"),
+                    "pool": coin.get("pool") or coin.get("pool_label"),
+                    "seen_at": iso_utc(seen) if isinstance(seen, datetime) else seen,
+                    "since": iso_utc(seen) if isinstance(seen, datetime) else seen,
+                    "testdata": bool(item.get("testdata")),
+                    "verdict": scan.get("verdict") or "pending",
+                    "reason": scan.get("reason") or "awaiting dex read",
+                    "scan_ts": scan.get("ts"),
+                    "liquidity_usd": scan.get("liquidity_usd"),
+                    "top10_pct": scan.get("top10_pct"),
+                    "h1_change_pct": scan.get("h1_change_pct"),
+                    "age_min": scan.get("age_min"),
+                }
+            )
+        allowed = self.rate.next_allowed_at()
+        return {
+            "filters": {
+                "min_liquidity_usd": str(settings["scanner.min_liquidity_usd"]),
+                "max_top10_pct": str(settings["scanner.max_top10_pct"]),
+                "max_h1_change_pct": str(settings["scanner.max_h1_change_pct"]),
+                "min_pool_age_min": str(settings["scanner.min_pool_age_min"]),
+                "max_wait_min": str(settings["scanner.max_wait_min"]),
+                "poll_s": poll_s,
+                "runner_h24_pct": str(settings["scanner.runner_h24_pct"]),
+            },
+            "risk_rules": {
+                "stop_pct": str(settings["risk.stop_pct"]),
+                "trail_start_pct": str(settings["risk.trail_start_pct"]),
+                "trail_pct": str(settings["risk.trail_pct"]),
+                "timeout_h": str(settings["risk.timeout_h"]),
+            },
+            "sources": sources,
+            "feed": self._feed_view(),
+            "last_scan": None if self.last_poll["scanner"] is None else iso_utc(self.last_poll["scanner"]),
+            "next_scan": iso_utc(self._next_scan_at(poll_s)),
+            "waiting": waiting,
+            "recent_scans": self.db.recent_scans(12),
+            "rate": {
+                "limit_per_minute": self.rate.limit,
+                "denied": self.rate.denied,
+                "upstream_429": self.rate.throttled_429,
+                "backoff_until": None if self.rate.backoff_until is None else iso_utc(self.rate.backoff_until),
+                "next_allowed": None if allowed is None else iso_utc(allowed),
+                "block_reason": self.rate.block_reason(),
+            },
+            "execution": {
+                "state": "unconnected",
+                "desk_mode": "PAPER",
+                "live_orders": False,
+                "external_grok_bots_connected": 0,
+                "fomo_order_api": "not_available",
+                "browser_session": "parent_desktop_only",
+                "browser_execution": "not_established",
+                "render_can_control_parent_browser": False,
+                "quote_is_order": False,
+                "money_movement": "none",
+                "blocker": (
+                    "UNCONNECTED. The parent desktop has a signed-in fomo.family session. Discover and a "
+                    "coin page showed a Buy/Sell ticket, an amount field, buy presets, percentage sell "
+                    "presets, and slippage options. No order was placed. That is browser UI access only. "
+                    "This server has no execution adapter, no verified order API, and no bot settings. "
+                    "Five external Grok bots are unconnected. The public Render process cannot control "
+                    "that browser. A process heartbeat is not a connection. A paper ledger row is not a "
+                    "FOMO fill. Quotes stay quotes. The desk stays PAPER."
+                ),
+            },
+        }
+
     def _due(self, name: str, seconds: int) -> bool:
         last = self.last_poll[name]
         if last is None:
@@ -1440,7 +1625,7 @@ class Desk:
                 if pair is None:
                     error = "kein Dex-Paar"
             else:
-                error = "Dex ohne Antwort"
+                error = self.market_reads["dex"].get("detail") or "Dex ohne Antwort"
         except Exception as exc:
             error = type(exc).__name__
         stamp = iso_utc(self.now())
@@ -1511,6 +1696,10 @@ class Desk:
                     "status": self._agent_status(name, beat),
                     "last_beat": None if beat is None else beat["ts"],
                     "detail": None if beat is None else beat["detail"],
+                    "queue": self._role_queue(name),
+                    "external_bot": False,
+                    "lives_in": "this process",
+                    "heartbeat_proves_connection": False,
                 }
             )
         return {
@@ -1559,7 +1748,16 @@ class Desk:
             if start is not None and moment < start:
                 continue
             if row["kind"] in {"bought", "sold", "stopped"}:
-                marks.append({"t": row["ts"], "kind": row["kind"], "mint": row["mint"], "link": row["link"]})
+                marks.append(
+                    {
+                        "t": row["ts"],
+                        "kind": row["kind"],
+                        "mint": row["mint"],
+                        "link": row["link"],
+                        "title": row.get("title"),
+                        "value": row.get("value"),
+                    }
+                )
         return {
             "range": range_name,
             "start": None if start is None else iso_utc(start),
@@ -1599,9 +1797,94 @@ class Desk:
         }
 
 
+def _blank_read(url: str) -> dict:
+    return {
+        "url": url,
+        "kind": "not_run",
+        "detail": "no request yet",
+        "status": None,
+        "at": None,
+        "ok_at": None,
+        "next_at": None,
+    }
+
+
+def _classify_source_error(exc: Exception) -> dict:
+    text = str(exc).strip() or type(exc).__name__
+    if isinstance(exc, RateLimitError):
+        if "429" in text:
+            return {"kind": "upstream_429", "detail": text, "status": 429}
+        return {"kind": "local_budget", "detail": text, "status": None}
+    if isinstance(exc, OfflineError):
+        return {"kind": "offline", "detail": text, "status": None}
+    if isinstance(exc, SourceFailure):
+        if "timeout" in text:
+            return {"kind": "timeout", "detail": text, "status": 0}
+        marker = "http "
+        if marker in text:
+            tail = text.rsplit(marker, 1)[-1].split()[0]
+            status = int(tail) if tail.isdigit() else None
+            return {"kind": "http", "detail": text, "status": status}
+        return {"kind": "source", "detail": text, "status": None}
+    return {"kind": "transport", "detail": f"{type(exc).__name__}: {text}"[:240], "status": None}
+
+
+def _public_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    parts = urlsplit(url)
+    if not parts.scheme or not parts.hostname:
+        return None
+    if parts.username or parts.password or parts.query:
+        return f"{parts.scheme}://{parts.hostname}/"
+    return f"{parts.scheme}://{parts.hostname}{parts.path or ''}"
+
+
+def _source_row(name: str, url: str, capture: dict | None, *, read: dict | None = None, feed: dict | None = None) -> dict:
+    row = {
+        "name": name,
+        "url": _public_url(url) or url,
+        "kind": "not_run",
+        "detail": "no request yet",
+        "status": None,
+        "last_attempt": None,
+        "last_success": None,
+    }
+    if capture:
+        row["kind"] = "capture"
+        row["status"] = capture.get("status")
+        row["detail"] = capture.get("error") or f"http {capture.get('status')}"
+        row["last_attempt"] = capture.get("ts")
+        if capture.get("status") == 200 and not capture.get("error"):
+            row["last_success"] = capture.get("ts")
+            row["kind"] = "ok"
+        shown = _public_url(capture.get("url"))
+        if shown:
+            row["url"] = shown
+    if read and read.get("kind") not in {None, "not_run"}:
+        row["kind"] = read.get("kind") or row["kind"]
+        row["detail"] = read.get("detail") or row["detail"]
+        row["status"] = read.get("status")
+        row["last_attempt"] = read.get("at")
+        row["last_success"] = read.get("ok_at")
+        row["next_at"] = read.get("next_at")
+        if read.get("url"):
+            row["url"] = read["url"]
+    if feed is not None:
+        row["kind"] = "fresh" if feed["fresh"] else "stale"
+        row["detail"] = feed["detail"] or feed["label"]
+        row["last_attempt"] = feed["last_frame"]
+        row["last_success"] = feed["last_frame"] if feed["fresh"] else None
+        row["status"] = None if feed["error"] else (200 if feed["fresh"] else None)
+        if feed["error"]:
+            row["detail"] = f"{feed['error']}: {feed['detail']}"
+    return row
+
+
 def _pair_metric(pair) -> dict:
     return {
         "price_usd": None if pair.price_usd is None else str(pair.price_usd),
+        "market_cap": None if pair.market_cap is None else str(pair.market_cap),
         "liquidity_usd": None if pair.liquidity_usd is None else str(pair.liquidity_usd),
         "volume_m5": None if pair.volume_m5 is None else str(pair.volume_m5),
         "volume_h1": None if pair.volume_h1 is None else str(pair.volume_h1),

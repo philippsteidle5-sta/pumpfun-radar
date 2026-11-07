@@ -39,7 +39,10 @@ function stateClass(state) {
   return "missing";
 }
 
+let latestView = null;
+
 function render(view) {
+  latestView = view;
   const banner = document.getElementById("banner");
   banner.innerHTML = "";
   if (view.connection === "error" || view.connection_error) {
@@ -58,6 +61,9 @@ function render(view) {
     ["Telegram", "aus"],
     ["Zustellung", "aus, nur diese Ansicht"],
   ];
+  renderFreshness(view);
+  renderExecution();
+  renderSearch(view);
   for (const [name, value] of rows) {
     const row = document.createElement("div");
     row.className = "row";
@@ -187,27 +193,22 @@ async function refresh() {
   if (refreshing) return;
   refreshing = true;
   try {
-    const [view, state, positions, chart, activity] = await Promise.all([
-      api("/api/monitor"), api("/api/state"), api("/api/positions"),
-      api("/api/chart?range=" + document.getElementById("chart-range").value), api("/api/activity"),
+    const [view, state, bridge, activity] = await Promise.all([
+      api("/api/monitor"), api("/api/state"), api("/api/bridge"), api("/api/activity"),
     ]);
     if (!token()) return;
     document.getElementById("login").hidden = true;
     document.getElementById("workspace").hidden = false;
     render(view);
-    renderSummary(state);
-    renderAgents(state);
-    renderPositions(positions.positions);
-    renderChart(chart);
+    renderBridge(bridge);
+    renderAgents(state, bridge);
+    renderPositions();
+    renderChart();
     mergeActivity(activity, false);
     if (!document.getElementById("report-date").value) document.getElementById("report-date").value = state.night_id;
     if (activeTab === "report") await loadReport();
     document.getElementById("updated").textContent = "Aktualisiert " + new Date().toLocaleTimeString("de-DE");
-    if (state.ticket_warning) {
-      const note = document.createElement("div"); note.className = "banner";
-      note.textContent = state.ticket_warning;
-      document.getElementById("banner").append(note);
-    }
+    void state;
   } catch (error) {
     announce(error.message === "unauthorized" ? "Bitte mit deinem lokalen Zugangstoken anmelden." : "Aktualisierung fehlgeschlagen. Angezeigte Daten können veraltet sein. " + error.message);
   } finally {
@@ -215,25 +216,209 @@ async function refresh() {
   }
 }
 
-function renderSummary(state) {
+function renderBridge(bridge) {
   const host = document.getElementById("summary"); host.replaceChildren();
-  for (const [label, value] of [["Paper-Kontowert", money(state.balance)], ["Verfügbar", money(state.cash)], ["Reserviert", money(state.reserved)], ["Offene Positionen", state.exposure]]) {
-    const card = document.createElement("div"); card.className = "metric";
-    const small = document.createElement("small"); small.textContent = label;
-    const strong = document.createElement("strong"); strong.textContent = value;
-    card.append(small, strong); host.append(card);
+  const armed = document.createElement("div"); armed.className = "metric";
+  const armedLabel = document.createElement("small"); armedLabel.textContent = "Ausführung";
+  const armedValue = document.createElement("strong"); armedValue.className = "neg"; armedValue.textContent = "NICHT SCHARF";
+  armed.append(armedLabel, armedValue); host.append(armed);
+  const hook = document.createElement("div"); hook.className = "metric";
+  const hookLabel = document.createElement("small"); hookLabel.textContent = "Webhook";
+  const hookValue = document.createElement("strong"); hookValue.textContent = bridge.webhook_configured ? "hinterlegt, noch ohne Ack" : "nicht konfiguriert";
+  hook.append(hookLabel, hookValue); host.append(hook);
+  const roles = bridge.roles || {};
+  const linked = Object.values(roles).filter(role => role.connected).length;
+  const count = document.createElement("div"); count.className = "metric";
+  const countLabel = document.createElement("small"); countLabel.textContent = "Bots mit echtem Ack";
+  const countValue = document.createElement("strong"); countValue.textContent = String(linked) + " / 5";
+  count.append(countLabel, countValue); host.append(count);
+  const fomoscan = bridge.fomoscan || {};
+  host.append(line("FomoScan", fomoscan.configured ? "Schlüssel gesetzt, nicht verbunden, keine Orders" : "nicht konfiguriert · nur Handle/Wallet-Daten · keine Orders", ""));
+  for (const job of bridge.jobs || []) {
+    if (job.kind !== "order_review") continue;
+    host.append(line(job.subject || job.job_id, "Prüfung " + job.status + " · nicht gesendet", ""));
   }
 }
 
-function renderAgents(state) {
+function renderFreshness(view) {
+  const node = document.getElementById("freshness");
+  const feed = view.search && view.search.feed;
+  const fresh = Boolean(feed && feed.fresh);
+  node.className = fresh ? "freshness fresh" : "freshness";
+  node.textContent = fresh ? "Migrationsfeed frisch" : "Kein frischer Migrationsframe";
+}
+
+function renderExecution() {
+  const text = document.getElementById("execution-copy");
+  if (text) text.textContent = "Nicht verbunden, bis ein Bot eine Verbindungsprüfung bestätigt. Keine Order, kein Live-Saldo, kein simulierter Fill.";
+}
+
+function renderSearch(view) {
+  const search = view.search || {};
+  const filters = document.getElementById("scan-filters");
+  const sources = document.getElementById("scan-sources");
+  const candidates = document.getElementById("scan-candidates");
+  filters.replaceChildren();
+  sources.replaceChildren();
+  candidates.replaceChildren();
+  const rules = search.filters || {};
+  const filterRows = [
+    ["Mindestliquidität", rules.min_liquidity_usd == null ? "—" : money(rules.min_liquidity_usd)],
+    ["Top 10 höchstens", rules.max_top10_pct == null ? "—" : rules.max_top10_pct + " %"],
+    ["1h-Änderung höchstens", rules.max_h1_change_pct == null ? "—" : rules.max_h1_change_pct + " %"],
+    ["Mindest-Poolalter", rules.min_pool_age_min == null ? "—" : rules.min_pool_age_min + " min"],
+    ["Warteraum höchstens", rules.max_wait_min == null ? "—" : rules.max_wait_min + " min"],
+    ["Scan-Abstand", rules.poll_s == null ? "—" : rules.poll_s + " s"],
+    ["Letzter Scan", stamp(search.last_scan)],
+    ["Nächster Scan", stamp(search.next_scan)],
+  ];
+  for (const [name, value] of filterRows) filters.append(line(name, value, ""));
+  const rate = search.rate || {};
+  filters.append(line("Lokale Sperren", String(rate.denied ?? 0), ""));
+  filters.append(line("Upstream HTTP 429", String(rate.upstream_429 ?? 0), rate.upstream_429 ? "fail" : ""));
+  filters.append(line("Cooldown bis", stamp(rate.backoff_until), rate.block_reason === "upstream_429" ? "fail" : ""));
+  for (const source of search.sources || []) {
+    const state = source.kind === "ok" || source.kind === "fresh" ? "pass" : source.kind === "upstream_429" || source.kind === "error" || source.kind === "timeout" || source.kind === "http" ? "fail" : "missing";
+    sources.append(line(source.name, [source.kind, source.status == null ? "" : "HTTP " + source.status, source.detail, source.url].filter(Boolean).join(" · "), state));
+    sources.append(line("Letzter Versuch / Erfolg", stamp(source.last_attempt) + " / " + stamp(source.last_success), ""));
+  }
+  const waiting = view.waiting || [];
+  const recent = search.recent_scans || [];
+  if (!waiting.length && !recent.length) candidates.append(empty("Noch keine Migration im Warteraum und kein gespeichertes Scan-Urteil."));
+  for (const item of waiting) candidates.append(candidateRow(item, true));
+  for (const row of recent) candidates.append(candidateRow(row, false));
+  for (const check of view.checks || []) {
+    if (!check.stage) continue;
+    const button = document.createElement("button");
+    button.className = "secondary";
+    button.type = "button";
+    button.textContent = (check.symbol || check.name || check.mint) + " · " + check.stage.name + " " + check.stage.state;
+    button.onclick = () => openCoin(check.mint, check);
+    candidates.append(button);
+    candidates.append(line(check.stage.name, check.stage.reason || "—", check.stage.state === "reject" ? "fail" : ""));
+  }
+}
+
+function candidateRow(item, waiting) {
+  const button = document.createElement("button");
+  button.className = "secondary";
+  button.type = "button";
+  const name = item.symbol || item.name || item.mint;
+  button.textContent = (waiting ? "Warteraum · " : "Scan · ") + name;
+  button.onclick = () => openCoin(item.mint, item);
+  const wrap = document.createElement("div");
+  wrap.append(button);
+  wrap.append(line("Mint / Pool", [item.mint, item.pool].filter(Boolean).join(" · "), ""));
+  wrap.append(line("Urteil", [item.verdict || "pending", item.reason].filter(Boolean).join(" · "), item.verdict === "kill" ? "fail" : "missing"));
+  wrap.append(line("Quellezeit", stamp(item.scan_ts || item.ts || item.seen_at), ""));
+  return wrap;
+}
+
+async function openCoin(mint, known) {
+  const panel = document.getElementById("coin-detail");
+  const body = document.getElementById("coin-body");
+  panel.hidden = false;
+  body.replaceChildren(empty("Lade gespeicherte Münzdaten …"));
+  let coin = null;
+  try { coin = await api("/api/coin/" + encodeURIComponent(mint)); }
+  catch (error) { coin = null; if (error.message !== "unknown mint") announce(error.message); }
+  body.replaceChildren();
+  const title = document.createElement("h3");
+  title.textContent = (coin && (coin.symbol || coin.name)) || (known && (known.symbol || known.name)) || mint;
+  body.append(title);
+  body.append(line("Netzwerk", "Solana", ""));
+  body.append(line("Mint", mint, ""));
+  body.append(line("Alter", known && known.age_min != null ? known.age_min + " min" : "keine gespeicherte Pool-Zeit", ""));
+  const stats = coin && coin.stats || {};
+  body.append(line("Marktkapitalisierung", stats.market_cap == null ? "keine Dex-Angabe" : money(stats.market_cap), ""));
+  body.append(line("Dex-Volumen m5", stats.volume_m5 == null ? "kein Snapshot" : money(stats.volume_m5) + " · Snapshot, nicht 1m-Tradevolumen", ""));
+  body.append(line("Preis", coin && coin.price != null ? coin.price : "kein gespeicherter Preis", ""));
+  const position = coin && coin.position;
+  body.append(empty("Quote, keine Order. Keine Live-Position und kein simulierter Fill."));
+  if (known && known.reason) body.append(line("Letzter Grund", known.reason, ""));
+  const risk = latestView && latestView.search && latestView.search.risk_rules;
+  if (risk) {
+    body.append(line("Stop-Regel", risk.stop_pct + " %", ""));
+    body.append(line("Trail", "Start " + risk.trail_start_pct + " % · Abstand " + risk.trail_pct + " %", ""));
+  }
+  body.append(renderCandles(coin, null));
+  if (coin && coin.coin_url) {
+    const link = document.createElement("a");
+    link.href = coin.coin_url;
+    link.rel = "noreferrer";
+    link.textContent = "Öffentlicher FOMO-Link, kein Orderweg";
+    body.append(link);
+  }
+  panel.scrollIntoView({block: "nearest"});
+}
+
+function renderCandles(coin, position) {
+  const host = document.createElement("div");
+  const candles = coin && Array.isArray(coin.candles) ? coin.candles : [];
+  if (!candles.length) {
+    host.append(empty("Noch keine eigenen Preiszeilen für eine Kerze."));
+    return host;
+  }
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 320 160");
+  svg.setAttribute("class", "candles");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Kerzen aus gespeicherten Desk-Preisen");
+  const highs = candles.map(row => Number(row.high));
+  const lows = candles.map(row => Number(row.low));
+  let hi = Math.max(...highs);
+  let lo = Math.min(...lows);
+  const entry = position && Number(position.entry_price);
+  if (Number.isFinite(entry)) { hi = Math.max(hi, entry); lo = Math.min(lo, entry); }
+  const span = hi - lo || 1;
+  candles.forEach((row, index) => {
+    const x = 8 + index * ((304) / Math.max(candles.length, 1));
+    const y = value => 150 - ((value - lo) / span) * 140;
+    const open = Number(row.open), close = Number(row.close);
+    const up = close >= open;
+    const line = document.createElementNS(svg.namespaceURI, "line");
+    line.setAttribute("x1", x); line.setAttribute("x2", x);
+    line.setAttribute("y1", y(Number(row.high))); line.setAttribute("y2", y(Number(row.low)));
+    line.setAttribute("stroke", up ? "#32d74b" : "#ff453a");
+    const body = document.createElementNS(svg.namespaceURI, "line");
+    body.setAttribute("x1", x); body.setAttribute("x2", x);
+    body.setAttribute("y1", y(open)); body.setAttribute("y2", y(close));
+    body.setAttribute("stroke", up ? "#32d74b" : "#ff453a");
+    body.setAttribute("stroke-width", "4");
+    svg.append(line, body);
+  });
+  if (Number.isFinite(entry)) {
+    const y = 150 - ((entry - lo) / span) * 140;
+    const guide = document.createElementNS(svg.namespaceURI, "line");
+    guide.setAttribute("x1", "0"); guide.setAttribute("x2", "320");
+    guide.setAttribute("y1", y); guide.setAttribute("y2", y);
+    guide.setAttribute("stroke", "#f5f5f7");
+    guide.setAttribute("stroke-dasharray", "3 4");
+    svg.append(guide);
+    host.append(svg);
+    const note = document.createElement("p");
+    note.className = "entry-note";
+    note.textContent = "Gepunktet: gespeicherter Paper-Einstieg " + entry;
+    host.append(note);
+    return host;
+  }
+  host.append(svg);
+  return host;
+}
+
+function renderAgents(state, bridge) {
   const host = document.getElementById("agents"); host.replaceChildren();
-  const labels = {paused: "Pausiert", running: "Aktiv", starting: "Startet", stalled: "Kein aktueller Heartbeat", idle: "Bereit", held: "Angehalten"};
+  const labels = {paused: "Pausiert", running: "Lokaler Schritt", starting: "Startet", stalled: "Heartbeat älter als 120s", idle: "Wartet", held: "Auditor aus", backoff: "Cooldown", error: "Quellenfehler"};
   for (const agent of state.agents) {
     const card = document.createElement("article"); card.className = "agent";
     const title = document.createElement("h3"); title.textContent = agent.name;
+    const badge = document.createElement("span"); badge.className = "badge " + agent.name; badge.textContent = "Prozessrolle";
     const status = document.createElement("p"); status.textContent = labels[agent.status] || agent.status;
     const detail = document.createElement("p"); detail.className = "empty";
-    detail.textContent = agent.detail || "Wartet auf Aufgabe";
+    const queue = agent.queue == null ? "—" : String(agent.queue);
+    const link = bridge && bridge.roles && bridge.roles[agent.name];
+    const bot = link && link.connected ? "Bot-Ack " + stamp(link.acked_at) : "Bot nicht verbunden";
+    detail.textContent = [agent.detail || "kein Detail", "Zähler " + queue, "Prozess-Heartbeat " + stamp(agent.last_beat), "kein Verbindungsbeleg", bot].join(" · ");
     const button = document.createElement("button"); button.className = "secondary";
     button.textContent = agent.paused ? "Fortsetzen" : "Pausieren";
     button.disabled = agent.name === "risk" && state.exposure > 0;
@@ -244,44 +429,20 @@ function renderAgents(state) {
       catch (error) { announce(error.message); }
       finally { button.disabled = agent.name === "risk" && state.exposure > 0; }
     };
-    card.append(title, status, detail, button); host.append(card);
+    card.append(title, badge, status, detail, button); host.append(card);
   }
 }
 
-function renderPositions(positions) {
+function renderPositions() {
   const host = document.getElementById("positions"); host.replaceChildren();
-  if (!positions.length) { host.append(empty("Noch keine offene Paper-Position. Der Desk steigt erst nach bestandenen Prüfungen ein.")); return; }
-  for (const position of positions) {
-    const card = document.createElement("article"); card.className = "position";
-    const title = document.createElement("h3"); title.textContent = position.symbol || position.name || position.mint;
-    card.append(title);
-    for (const [label, value] of [["Status", position.status], ["Einsatz", money(position.size_usd)], ["Einstieg", position.entry_price], ["Letzter Preis", position.last_price ?? "keine Daten"], ["Preiszeitpunkt", stamp(position.last_price_at)], ["Stop", position.stop_price], ["Trailing", position.trail_active ? "aktiv" : "wartet"]]) card.append(line(label, value, ""));
-    if (position.testdata) card.append(empty("TESTDATA · simulierte Testposition"));
-    host.append(card);
-  }
+  host.append(empty("Keine Live-Position. Ausführung ist nicht scharf. Ein Paper-Ledger wird hier nicht als Fill gezeigt."));
 }
 
 function empty(text) { const p = document.createElement("p"); p.className = "empty"; p.textContent = text; return p; }
 
-function renderChart(chart) {
+function renderChart() {
   const host = document.getElementById("chart"); host.replaceChildren();
-  const points = chart.points.filter(p => Number.isFinite(Number(p.value)));
-  if (!points.length) { host.append(empty("Noch keine Buchungen in diesem Zeitraum.")); return; }
-  if (points.length === 1) { host.append(empty(money(points[0].value) + " · Startwert. Weitere Buchungen erscheinen hier.")); return; }
-  const values = points.map(p => Number(p.value));
-  const low = Math.min(...values), high = Math.max(...values);
-  const start = Date.parse(points[0].t), end = Date.parse(points.at(-1).t);
-  const coordinates = points.map(p => [20 + (Date.parse(p.t) - start) / (end - start || 1) * 960, 145 - (Number(p.value) - low) / (high - low || 1) * 120]);
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 1000 170"); svg.setAttribute("preserveAspectRatio", "none");
-  svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "Kontoverlauf von " + money(values[0]) + " bis " + money(values.at(-1)));
-  const path = document.createElementNS(svg.namespaceURI, "polyline");
-  path.setAttribute("points", coordinates.map(p => p.join(",")).join(" "));
-  path.setAttribute("fill", "none"); path.setAttribute("stroke", "#b6f36a"); path.setAttribute("stroke-width", "3");
-  svg.append(path); host.append(svg);
-  const labels = document.createElement("div"); labels.className = "chart-labels";
-  for (const value of [stamp(points[0].t), money(low) + " – " + money(high), stamp(points.at(-1).t)]) { const span = document.createElement("span"); span.textContent = value; labels.append(span); }
-  host.append(labels);
+  host.append(empty("Keine Live-Kurve. Simulierte Paper-Buchungen werden nicht als Kontostand gezeichnet."));
 }
 
 function mergeActivity(page, older) {
@@ -290,7 +451,10 @@ function mergeActivity(page, older) {
   if (older || firstLoad) nextActivity = page.next_before;
   const host = document.getElementById("activity"); host.replaceChildren();
   if (!activityRows.size) host.append(empty("Noch keine Aktivitäten."));
-  for (const row of [...activityRows.values()].sort((a,b) => b.id - a.id)) host.append(line(row.title || row.kind, [stamp(row.ts), row.subtitle, row.value].filter(Boolean).join(" · "), row.kind === "rejected" ? "fail" : ""));
+  for (const row of [...activityRows.values()].sort((a,b) => b.id - a.id)) {
+    if (row.kind === "bought" || row.kind === "sold" || row.kind === "stopped" || row.kind === "fill") continue;
+    host.append(line(row.title || row.kind, [stamp(row.ts), row.subtitle, row.value].filter(Boolean).join(" · "), row.kind === "rejected" ? "fail" : ""));
+  }
   document.getElementById("more-activity").hidden = nextActivity == null;
 }
 
@@ -319,7 +483,11 @@ document.getElementById("login-form").addEventListener("submit", async event => 
 });
 document.getElementById("logout").onclick = () => {
   localStorage.removeItem(storageKey); activityRows.clear(); nextActivity = null; reportRequest++;
-  for (const id of ["summary", "positions", "agents", "activity", "chart", "checks", "report-body", "status", "banner"]) document.getElementById(id).replaceChildren();
+  for (const id of ["summary", "positions", "agents", "activity", "chart", "checks", "report-body", "status", "banner", "scan-filters", "scan-sources", "scan-candidates", "coin-body"]) {
+    const node = document.getElementById(id);
+    if (node) node.replaceChildren();
+  }
+  document.getElementById("coin-detail").hidden = true;
   showLogin();
 };
 document.querySelectorAll("[data-tab]").forEach(button => button.onclick = () => {
@@ -328,7 +496,13 @@ document.querySelectorAll("[data-tab]").forEach(button => button.onclick = () =>
   document.querySelectorAll("[data-tab]").forEach(tab => tab.setAttribute("aria-pressed", String(tab === button)));
   if (activeTab === "report") loadReport().catch(error => announce(error.message));
 });
-document.getElementById("chart-range").onchange = refresh;
+document.getElementById("bridge-check").onclick = async () => {
+  const button = document.getElementById("bridge-check");
+  button.disabled = true;
+  try { await api("/api/bridge/connection-check", {method: "POST"}); await refresh(); }
+  catch (error) { announce(error.message); }
+  finally { button.disabled = false; }
+};
 document.getElementById("report-date").onchange = () => loadReport().catch(error => announce(error.message));
 document.getElementById("more-activity").onclick = async () => {
   const button = document.getElementById("more-activity"); button.disabled = true;

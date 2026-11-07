@@ -9,10 +9,13 @@
 <body>
   <main>
     <header>
-      <span class="mode">PAPER</span>
-      <h1>FOMO <span class="muted">/ Paper Desk</span></h1>
-      <p class="sub">Dein Desk. Fünf Rollen. Eine Übersicht.</p>
-      <p class="foot">Simulierter Handel · öffentliche Marktdaten · Telegram aus</p>
+      <div class="brand">
+        <span id="freshness" class="freshness">Kein frischer Migrationsframe</span>
+        <span class="mode">PAPER</span>
+      </div>
+      <h1>FOMO Desk</h1>
+      <p class="sub">Eigener Desk. Fünf Prozessrollen. Keine verbundenen Grok-Bots.</p>
+      <p class="foot">Ausführung nicht scharf. Kein Live-Kontostand. Der Webhook nennt nur eine Job-ID.</p>
     </header>
     <section id="banner" role="status" aria-live="polite"></section>
     <section id="file-start" class="card" hidden>
@@ -28,14 +31,27 @@
     </section>
     <div id="workspace" hidden>
     <div class="toolbar"><span id="updated" class="empty"></span><button id="logout" class="secondary">Abmelden</button></div>
-    <section id="summary" class="metrics" aria-label="Paper-Konto"></section>
+    <section id="summary" class="hero" aria-label="Paper-Konto"></section>
     <nav aria-label="Ansichten"><button data-tab="overview" aria-pressed="true">Übersicht</button><button data-tab="analysis" aria-pressed="false">Analyse</button><button data-tab="report" aria-pressed="false">Nachtbericht</button></nav>
     <div id="overview" class="tab-panel">
-      <section class="card"><div class="section-head"><h2>Kontoverlauf</h2><select id="chart-range" aria-label="Zeitraum"><option value="LIVE">Aktuelle Nacht</option><option>1H</option><option>4H</option><option>1D</option><option>1W</option><option>ALL</option></select></div><p class="empty">Gebuchter Kontowert in USD · offene Kursgewinne sind nicht enthalten</p><div id="chart"></div></section>
-      <section class="card"><h2>Offene Positionen</h2><div id="positions"></div></section>
-      <section class="card"><h2>Dein Team</h2><div id="agents" class="agent-grid"></div></section>
-      <section class="card"><h2>Letzte Aktivitäten</h2><div id="activity"></div><button id="more-activity" class="secondary" hidden>Ältere laden</button></section>
-      <details class="card"><summary>Verbindung &amp; Quellen</summary><div id="status"></div></details>
+      <section id="execution" class="card execution">
+        <h2>Ausführung nicht scharf</h2>
+        <p id="execution-copy">Nicht verbunden, bis ein Bot eine Verbindungsprüfung bestätigt. Keine Order, kein Live-Saldo, kein simulierter Fill.</p>
+        <button id="bridge-check" class="secondary" type="button">Verbindungsprüfung einmal anstoßen</button>
+      </section>
+      <section class="card"><div class="section-head"><h2>Live-Konto</h2></div><p class="empty">Kein FOMO-Saldo an diesem Server. Eine Paper-Zahl wird nicht als Kontostand gezeigt.</p><div id="chart"></div></section>
+      <section class="card" id="scan-board">
+        <h2>Suche</h2>
+        <p class="empty">Wirksame Schwellen, öffentliche Quellen und gespeicherte Urteile. Schwellen werden nicht gelockert.</p>
+        <div id="scan-filters"></div>
+        <div id="scan-sources"></div>
+        <div id="scan-candidates"></div>
+      </section>
+      <section class="card"><h2>Rollen in diesem Prozess</h2><p class="empty">Das sind Desk-Rollen, keine externen Bots. Ein grüner Punkt erscheint nur am Migrationsfeed, und nur nach einem frischen Frame.</p><div id="agents" class="agent-grid"></div></section>
+      <section class="card"><h2>Live-Positionen</h2><div id="positions"></div></section>
+      <section class="card" id="coin-detail" hidden><h2>Münze</h2><div id="coin-body"></div></section>
+      <section class="card"><h2>Aktivität</h2><div id="activity"></div><button id="more-activity" class="secondary" hidden>Ältere laden</button></section>
+      <details class="card"><summary>Verbindung</summary><div id="status"></div></details>
     </div>
     <div id="analysis" class="tab-panel" hidden>
     <section class="card">

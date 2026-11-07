@@ -58,7 +58,9 @@ class HttpMarketSources:
 
     async def _get_json(self, source: str, mint: str | None, url: str) -> Any:
         if self.desk is not None and not self.desk.rate.acquire():
-            raise RateLimitError("global dex budget")
+            if self.desk.rate.block_reason() == "upstream_429":
+                raise RateLimitError(f"{source} cooldown after http 429")
+            raise RateLimitError(f"{source} local budget")
         try:
             response = await self.client.get(url, timeout=self.timeout)
         except httpx.TimeoutException as exc:
@@ -91,7 +93,9 @@ class HttpMarketSources:
 
     async def rpc(self, method: str, params: list) -> Any:
         if self.desk is not None and not self.desk.rate.acquire():
-            raise RateLimitError("rpc budget")
+            if self.desk.rate.block_reason() == "upstream_429":
+                raise RateLimitError("rpc cooldown after http 429")
+            raise RateLimitError("rpc local budget")
         payload = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
         mint = _mint_from_rpc(method, params)
         try:
