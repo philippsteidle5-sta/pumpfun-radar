@@ -1,0 +1,1834 @@
+{
+  "schemes": [],
+  "swagger": "2.0",
+  "info": {
+    "description": "The RugCheck API provides token scoring across multiple markets. It is an excellent tool for both detecting scams, and providing strong trading signals to applications and AI agents.",
+    "title": "RugCheck API",
+    "contact": {},
+    "version": "1.0"
+  },
+  "host": "api.rugcheck.xyz",
+  "basePath": "/",
+  "paths": {
+    "/ping": {
+      "get": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "General"
+        ],
+        "summary": "Ping service",
+        "responses": {
+          "200": {
+            "description": "Returns pong if the service is up and running",
+            "schema": {
+              "$ref": "#/definitions/dto.Pong"
+            }
+          }
+        }
+      }
+    },
+    "/v1/bulk/tokens/report": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Generate a detailed report for token mints",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Bulk token reports",
+        "parameters": [
+          {
+            "description": "Bulk request containing token mints",
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/dto.BulkRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/bulk/tokens/summary": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Generate a summary report for all token mints",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Bulk token report summary",
+        "parameters": [
+          {
+            "description": "Bulk request containing token mints",
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/dto.BulkRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token report summaries",
+            "schema": {
+              "$ref": "#/definitions/dto.BulkSummaryResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/domains": {
+      "get": {
+        "description": "Returns all registered .token domains",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Domains"
+        ],
+        "summary": "Get registered domains",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "Page number for results",
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "description": "Limit number of results",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "type": "boolean",
+            "description": "Filter to only domains with verification set",
+            "name": "verified",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns all registered domains",
+            "schema": {
+              "$ref": "#/definitions/dto.DomainResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/domains/lookup/{id}": {
+      "get": {
+        "description": "Returns the related domain address",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Domains"
+        ],
+        "summary": "Lookup domain address",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Domain name",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domain address",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/v1/leaderboard": {
+      "get": {
+        "description": "Get user leaderboard rankings",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "General"
+        ],
+        "summary": "Get leaderboard",
+        "parameters": [
+          {
+            "type": "integer",
+            "default": 0,
+            "description": "Page number",
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "maximum": 100,
+            "type": "integer",
+            "default": 50,
+            "description": "Results per page",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Leaderboard rankings",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/rugcheck_api.User"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/maintenance": {
+      "get": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "General"
+        ],
+        "summary": "Maintenance service",
+        "responses": {
+          "200": {
+            "description": "Returns pong if the service is up and running",
+            "schema": {
+              "$ref": "#/definitions/dto.Pong"
+            }
+          }
+        }
+      }
+    },
+    "/v1/search": {
+      "get": {
+        "description": "Full-text search over token name, symbol, and mint address, ranked so\nlegitimate tokens beat impersonators. An empty q returns a trust/activity-ranked browse listing.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Search tokens",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Search query (name, symbol, or mint address)",
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "description": "Max results (default 20, capped at 50)",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "description": "Filter out tokens with a risk score above this value (default 0, unfiltered)",
+            "name": "maxScore",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "description": "Page number for results (default 0)",
+            "name": "page",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ranked search results",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/dto.SearchResult"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Search failed",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/stats/analytics": {
+      "get": {
+        "description": "Returns token launch counts, rug counts, time-to-rug by platform, and rugged market cap totals",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Analytics metrics",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Time window for stats: 24h, 1d, 7d, 30d (default: 7d)",
+            "name": "window",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/services.AnalyticsStats"
+            }
+          }
+        }
+      }
+    },
+    "/v1/stats/new_tokens": {
+      "get": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Recently detected tokens",
+        "responses": {
+          "200": {
+            "description": "Returns the recently detected tokens",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/rugcheck_api.Token"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stats/recent": {
+      "get": {
+        "description": "Returns the most viewed token mints, ranked by approximate unique views for the selected window",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Most viewed tokens",
+        "parameters": [
+          {
+            "type": "string",
+            "default": "24h",
+            "description": "Time window: 1m, 5m, 30m, 1h, 6h, 24h, 1w",
+            "name": "window",
+            "in": "query"
+          },
+          {
+            "maximum": 100,
+            "type": "integer",
+            "default": 10,
+            "description": "Results per page",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the most viewed for token mints",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/dto.TokenInfoAgg"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stats/rugs/stream": {
+      "get": {
+        "description": "Server-Sent Events stream that pushes each new rug event as it is detected. Use EventSource on the frontend.",
+        "produces": [
+          "text/event-stream"
+        ],
+        "tags": [
+          "Stats"
+        ],
+        "summary": "SSE stream of live rug events for ticker",
+        "responses": {}
+      }
+    },
+    "/v1/stats/rugs/ticker": {
+      "get": {
+        "description": "Returns the most recent rug events in a lightweight format for the website header ticker",
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Recent rugs for header ticker",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "Number of events (max 50, default 10)",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "/v1/stats/rugs/top-liquidity": {
+      "get": {
+        "description": "Returns the top N rugs ranked by actual USD liquidity pulled from the pool, rather than peak FDV market cap",
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Biggest rugs by liquidity pulled",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "Number of events (max 25, default 15)",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "/v1/stats/trending": {
+      "get": {
+        "description": "Only users who have connected their wallet are able to vote",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Most voted for tokens in past 24 hours",
+        "responses": {
+          "200": {
+            "description": "Returns the most voted for token mints",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/rugcheck_api.TrendingToken"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stats/verified": {
+      "get": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Recently verified tokens",
+        "responses": {
+          "200": {
+            "description": "Returns the recently verified tokens",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/rugcheck_api.VerifiedToken"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/verified": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Tokens that have passed RugCheck's own verification review and whose verification is still active. A token drops out of this list as soon as its verification is revoked.\n\nThis covers RugCheck's own verification only. Tokens marked verified through an external registry are not included here, so treat this list as a complement to any third-party verified set rather than a superset of it.\n\nResults are newest-verified first. Paginate by taking `nextCursor` from a response and sending it back as the `cursor` parameter on the next call. When a response omits `nextCursor`, you have reached the last page. The cursor encodes a position rather than an offset, so pages stay stable while new tokens are verified \u2014 you will not see duplicates or skipped entries mid-scan. Cursors are opaque; do not construct or modify them.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "List platform-verified tokens",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Pagination cursor: the nextCursor value from a previous response. Omit for the first page.",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "description": "Results per page, 1-100 (default 20)",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verified tokens, plus nextCursor when more pages remain",
+            "schema": {
+              "$ref": "#/definitions/dto.VerifiedTokenListResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid limit or malformed cursor",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Paid-plan API key required",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/verify": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Submit token for verification",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Verify token",
+        "parameters": [
+          {
+            "description": "Verification request",
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/dto.TokenVerificationRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verification submitted successfully",
+            "schema": {
+              "$ref": "#/definitions/dto.SuccessResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/verify/eligible": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Check if token is eligible for verification",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Check token eligibility",
+        "parameters": [
+          {
+            "description": "Eligibility request",
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/dto.TokenEligibilityRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eligibility status",
+            "schema": {
+              "$ref": "#/definitions/dto.TokenEligibilityResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/verify/transaction": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Get transaction for token verification",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Get verification transaction",
+        "parameters": [
+          {
+            "description": "Transaction request",
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/dto.TokenVerificationTransactionRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction data",
+            "schema": {
+              "$ref": "#/definitions/dto.TokenVerificationTransactionResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}/image": {
+      "get": {
+        "description": "Returns the token image file",
+        "produces": [
+          "image/jpeg"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Get token image",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Token mint address",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token image",
+            "schema": {
+              "type": "file"
+            }
+          },
+          "500": {
+            "description": "DegenCDN proxy error",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}/insiders/graph": {
+      "get": {
+        "description": "Generate an insider graph for given token mint",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Get token insider graph",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Token mint address",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}/insiders/networks": {
+      "get": {
+        "description": "Generate an insider networks for given token mint",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Get token insider networks",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Token mint address",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}/lockers": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Vaults"
+        ],
+        "summary": "Returns the tokens LP vaults",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Token mint address",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the tokens LP lockers",
+            "schema": {
+              "$ref": "#/definitions/dto.VaultResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}/lockers/flux": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Vaults"
+        ],
+        "summary": "Returns the tokens LP vaults from flux locker",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Token mint address",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the tokens LP lockers from flux locker",
+            "schema": {
+              "$ref": "#/definitions/dto.VaultResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}/metadata": {
+      "get": {
+        "description": "Returns Token metadata (image URL, name, symbol, attributes)",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Get token metadata",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Token mint address",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token metadata JSON"
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "DegenCDN proxy error",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}/report": {
+      "get": {
+        "description": "Generate a detailed report for given token mint",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Get full token report",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Token mint address",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "boolean",
+            "description": "Force report regeneration (paid API keys only)",
+            "name": "refresh",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Report a suspicious token",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Report token",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Token mint address",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Report submitted successfully",
+            "schema": {
+              "$ref": "#/definitions/dto.SuccessResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}/report/summary": {
+      "get": {
+        "description": "Generate a report summary for given token mint",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Get token report summary",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Token mint address",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "Only return cached reports",
+            "name": "cacheOnly",
+            "in": "query"
+          },
+          {
+            "type": "boolean",
+            "description": "Force report regeneration (paid API keys only)",
+            "name": "refresh",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token report summary",
+            "schema": {
+              "$ref": "#/definitions/dto.TokenCheckSummary"
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Token not found",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}/vote": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Vote on a token mint",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Votes"
+        ],
+        "summary": "Submit token vote",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Token mint address",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "Vote request",
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/dto.VoteRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated vote statistics",
+            "schema": {
+              "$ref": "#/definitions/dto.VoteResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}/votes": {
+      "get": {
+        "description": "Returns the voting statistics for a token mint",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "Votes"
+        ],
+        "summary": "Get token votes",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Token mint address",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token vote statistics",
+            "schema": {
+              "$ref": "#/definitions/dto.VoteResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/dto.ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "dto.BulkRequest": {
+      "type": "object",
+      "properties": {
+        "cacheOnly": {
+          "type": "boolean"
+        },
+        "tokens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dto.BulkSummaryResponse": {
+      "type": "object",
+      "properties": {
+        "reports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dto.TokenCheckSummary"
+          }
+        }
+      }
+    },
+    "dto.DomainResponse": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "$ref": "#/definitions/rugcheck_api.VerifiedTokenSimple"
+        }
+      }
+    },
+    "dto.ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "dto.Pong": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "dto.SearchResult": {
+      "type": "object",
+      "properties": {
+        "holders": {
+          "type": "integer"
+        },
+        "mcap": {
+          "type": "number"
+        },
+        "mint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "score": {
+          "type": "integer"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "verified": {
+          "type": "boolean"
+        }
+      }
+    },
+    "dto.SuccessResponse": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      }
+    },
+    "dto.TokenCheckSummary": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "lpLockedPct": {
+          "type": "number"
+        },
+        "mint": {
+          "description": "Only used on bulk responses",
+          "type": "string"
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rugcheck_api.Risk"
+          }
+        },
+        "score": {
+          "type": "integer"
+        },
+        "score_normalised": {
+          "type": "integer"
+        },
+        "tokenProgram": {
+          "type": "string"
+        },
+        "tokenType": {
+          "type": "string"
+        }
+      }
+    },
+    "dto.TokenEligibilityRequest": {
+      "type": "object",
+      "properties": {
+        "mint": {
+          "type": "string"
+        }
+      }
+    },
+    "dto.TokenEligibilityResponse": {
+      "type": "object",
+      "properties": {
+        "criteria": {
+          "$ref": "#/definitions/rugcheck_api.EligibilityResponse"
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "mint": {
+          "type": "string"
+        }
+      }
+    },
+    "dto.TokenInfoAgg": {
+      "type": "object",
+      "properties": {
+        "metadata": {
+          "$ref": "#/definitions/rugcheck_api.TokenMetadata"
+        },
+        "mint": {
+          "type": "string"
+        },
+        "score": {
+          "type": "integer"
+        },
+        "user_visits": {
+          "type": "integer"
+        },
+        "visits": {
+          "type": "integer"
+        }
+      }
+    },
+    "dto.TokenVerificationData": {
+      "type": "object",
+      "required": [
+        "dataIntegrityAccepted",
+        "description",
+        "solDomain",
+        "termsAccepted"
+      ],
+      "properties": {
+        "dataIntegrityAccepted": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "links": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "solDomain": {
+          "description": "*.token",
+          "type": "string"
+        },
+        "termsAccepted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "dto.TokenVerificationRequest": {
+      "type": "object",
+      "required": [
+        "mint",
+        "payer",
+        "signature"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/dto.TokenVerificationData"
+        },
+        "mint": {
+          "type": "string"
+        },
+        "payer": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        }
+      }
+    },
+    "dto.TokenVerificationTransactionRequest": {
+      "type": "object",
+      "required": [
+        "mint",
+        "payer"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/dto.TokenVerificationData"
+        },
+        "mint": {
+          "type": "string"
+        },
+        "payer": {
+          "type": "string"
+        },
+        "priority_fee": {
+          "type": "integer"
+        }
+      }
+    },
+    "dto.TokenVerificationTransactionResponse": {
+      "type": "object",
+      "properties": {
+        "transaction": {
+          "type": "string"
+        }
+      }
+    },
+    "dto.VaultResponse": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "$ref": "#/definitions/dto.VaultResponseSummary"
+        }
+      }
+    },
+    "dto.VaultResponseSummary": {
+      "type": "object",
+      "properties": {
+        "pct": {
+          "type": "number"
+        },
+        "totalUSDC": {
+          "type": "number"
+        }
+      }
+    },
+    "dto.VerifiedTokenListResponse": {
+      "type": "object",
+      "properties": {
+        "nextCursor": {
+          "type": "string"
+        },
+        "tokens": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rugcheck_api.VerifiedToken"
+          }
+        }
+      }
+    },
+    "dto.VoteRequest": {
+      "type": "object",
+      "properties": {
+        "mint": {
+          "type": "string"
+        },
+        "side": {
+          "type": "boolean"
+        }
+      }
+    },
+    "dto.VoteResponse": {
+      "type": "object",
+      "properties": {
+        "down": {
+          "type": "integer"
+        },
+        "up": {
+          "type": "integer"
+        },
+        "userVoted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "rugcheck_api.EligibilityResponse": {
+      "type": "object",
+      "properties": {
+        "created_recently": {
+          "type": "boolean"
+        },
+        "duplicate": {
+          "type": "boolean"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "freeze_authority_set": {
+          "type": "boolean"
+        },
+        "liquidity_unlocked": {
+          "type": "boolean"
+        },
+        "metadata_missing": {
+          "type": "boolean"
+        },
+        "mint_authority_set": {
+          "type": "boolean"
+        },
+        "risk_score": {
+          "type": "integer"
+        },
+        "validated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "rugcheck_api.Risk": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "score": {
+          "type": "integer"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "rugcheck_api.Token": {
+      "type": "object",
+      "properties": {
+        "createAt": {
+          "type": "string"
+        },
+        "creator": {
+          "type": "string"
+        },
+        "decimals": {
+          "type": "integer"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rugcheck_api.TokenEvent"
+          }
+        },
+        "freezeAuthority": {
+          "type": "string"
+        },
+        "mint": {
+          "type": "string"
+        },
+        "mintAuthority": {
+          "type": "string"
+        },
+        "program": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      }
+    },
+    "rugcheck_api.TokenEvent": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "string"
+        },
+        "event": {
+          "type": "integer"
+        },
+        "newValue": {
+          "type": "string"
+        },
+        "oldValue": {
+          "type": "string"
+        }
+      }
+    },
+    "rugcheck_api.TokenMetadata": {
+      "type": "object",
+      "properties": {
+        "mutable": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "updateAuthority": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        }
+      }
+    },
+    "rugcheck_api.TrendingToken": {
+      "type": "object",
+      "properties": {
+        "mint": {
+          "type": "string"
+        },
+        "up_count": {
+          "type": "integer"
+        },
+        "vote_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "rugcheck_api.User": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "votes": {
+          "type": "integer"
+        },
+        "weight": {
+          "type": "integer"
+        },
+        "wins": {
+          "type": "integer"
+        }
+      }
+    },
+    "rugcheck_api.VerifiedToken": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "jup_strict": {
+          "type": "boolean"
+        },
+        "jup_verified": {
+          "type": "boolean"
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rugcheck_api.VerifiedTokenLinks"
+          }
+        },
+        "mint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "payer": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "validated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "rugcheck_api.VerifiedTokenLinks": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "rugcheck_api.VerifiedTokenSimple": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "mint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        }
+      }
+    },
+    "services.AnalyticsStats": {
+      "type": "object",
+      "properties": {
+        "avgTimeToRugMinutes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "float64"
+          }
+        },
+        "rugLiquidityPulledUSD": {
+          "type": "number"
+        },
+        "rugMarketCapUSD": {
+          "type": "number"
+        },
+        "rugPullCount": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "tokensLaunched": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "window": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "ApiKeyAuth": {
+      "description": "JWT token for authentication",
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "tags": [
+    {
+      "description": "Authentication endpoints",
+      "name": "Auth"
+    },
+    {
+      "description": "Domain name related endpoints",
+      "name": "Domains"
+    },
+    {
+      "description": "General purpose endpoints",
+      "name": "General"
+    },
+    {
+      "description": "Statistical information endpoints",
+      "name": "Stats"
+    },
+    {
+      "description": "Token related endpoints",
+      "name": "Tokens"
+    },
+    {
+      "description": "Token vault related endpoints",
+      "name": "Vaults"
+    },
+    {
+      "description": "Token voting related endpoints",
+      "name": "Votes"
+    }
+  ]
+}

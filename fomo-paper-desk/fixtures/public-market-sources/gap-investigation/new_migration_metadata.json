@@ -1,0 +1,13 @@
+{
+  "started_utc": "2026-11-07T11:28:35.168891+00:00",
+  "endpoint": "wss://pumpportal.fun/api/data",
+  "subscription": {
+    "method": "subscribeMigration"
+  },
+  "messages": [
+    {
+      "message": "Subscribed to 'migration' events."
+    }
+  ],
+  "ended_utc": "2026-11-07T11:30:36.337225+00:00"
+}

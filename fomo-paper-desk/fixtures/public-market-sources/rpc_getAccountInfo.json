@@ -1,0 +1,51 @@
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "apiVersion": "4.4.0",
+      "slot": 466494869
+    },
+    "value": {
+      "data": {
+        "parsed": {
+          "info": {
+            "decimals": 6,
+            "extensions": [
+              {
+                "extension": "metadataPointer",
+                "state": {
+                  "authority": null,
+                  "metadataAddress": "DKtofLM6bhb54GQy5YFSWQjQmGiZqAkjzkQJ1LTopump"
+                }
+              },
+              {
+                "extension": "tokenMetadata",
+                "state": {
+                  "additionalMetadata": [],
+                  "mint": "DKtofLM6bhb54GQy5YFSWQjQmGiZqAkjzkQJ1LTopump",
+                  "name": "Diamond Hands",
+                  "symbol": "HODL",
+                  "updateAuthority": null,
+                  "uri": "https://ipfs.io/ipfs/bafkreiesv7itwpm4fuhhvibkpk5mwdphbcz36xv42kltvo5wkvkgov637a"
+                }
+              }
+            ],
+            "freezeAuthority": null,
+            "isInitialized": true,
+            "mintAuthority": null,
+            "supply": "995525164373836"
+          },
+          "type": "mint"
+        },
+        "program": "spl-token-2022",
+        "space": 415
+      },
+      "executable": false,
+      "lamports": 2758440,
+      "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "rentEpoch": 18446744073709551615,
+      "space": 415
+    }
+  },
+  "id": 1
+}

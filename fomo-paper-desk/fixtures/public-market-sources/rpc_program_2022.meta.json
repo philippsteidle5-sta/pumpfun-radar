@@ -1,0 +1,25 @@
+{
+  "timestamp_utc": "2026-11-07T11:25:53.717878+00:00",
+  "url": "https://api.mainnet-beta.solana.com",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getProgramAccounts",
+    "params": [
+      "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      {
+        "encoding": "jsonParsed",
+        "filters": [
+          {
+            "memcmp": {
+              "offset": 0,
+              "bytes": "DKtofLM6bhb54GQy5YFSWQjQmGiZqAkjzkQJ1LTopump"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "http_status": 200,
+  "success": true
+}

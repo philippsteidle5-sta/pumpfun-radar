@@ -1,0 +1,9 @@
+Verified 2026-11-07
+22 backend tests passed (pytest, 2.57s). One upstream Starlette deprecation warning.
+Browser: Chrome, desktop 1365px and mobile viewport 390px.
+PASS: direct-file CSS and start help; login; four account metrics; five agents;
+scanner pause/resume; report; CSV download; analysis; no horizontal overflow;
+logout hides data; no JavaScript errors.
+Windows starter: venv created, dependencies installed, --check passed.
+Local server: running at http://127.0.0.1:43123/ in PAPER mode.
+Full overnight public-market trading performance has not been verified.

@@ -1,0 +1,212 @@
+{
+  "description": "Allowlisted public market-source raw JSON, official schema and observational metadata only. No synthetic market samples. No owner/config/receipts/screenshots/secrets. No env read to scan.",
+  "files": [
+    {
+      "path": "public-market-sources/dex_actual_migration.meta.json",
+      "bytes": 201,
+      "sha256": "ef52672290cafc8cbe4855a2bf882ccd3905bac067df0c4aec75da8108ebcec3"
+    },
+    {
+      "path": "public-market-sources/dex_candidates.json",
+      "bytes": 56444,
+      "sha256": "af03e63667a2b25fee6b4f624378daaa9686f786475c0eddeda8a185d8abdeca"
+    },
+    {
+      "path": "public-market-sources/dex_discovery.json",
+      "bytes": 62945,
+      "sha256": "071d54d895a42f1d5b9b162efd208690ecbd3c4699939772ecab5bf67f0b5232"
+    },
+    {
+      "path": "public-market-sources/dex_discovery.meta.json",
+      "bytes": 186,
+      "sha256": "4fdf5bf6c38c0b6cac205650ba530df4d029ca2300328b9adeb45d266ce33b62"
+    },
+    {
+      "path": "public-market-sources/dex_tokens.json",
+      "bytes": 2036,
+      "sha256": "22f0d242848a11e8be38e23db902d265e9ac39fa34f0b9421652ca2c2d50c00d"
+    },
+    {
+      "path": "public-market-sources/dex_tokens.meta.json",
+      "bytes": 219,
+      "sha256": "b5913d8ca73131ae403591022ca35f2f975bdf1ba9966d93401c21a862f83e06"
+    },
+    {
+      "path": "public-market-sources/layer8_counts.json",
+      "bytes": 369,
+      "sha256": "0594d97dd810e85757a70ef2594bac91f65b6ce0bc182bb197f879ae0beb20f9"
+    },
+    {
+      "path": "public-market-sources/mapping_observed.json",
+      "bytes": 6400,
+      "sha256": "132ff58976d2ee0ccd6dcd49b269cd45257714eaebc1333f2733dc760e309e66"
+    },
+    {
+      "path": "public-market-sources/pumpportal_metadata.json",
+      "bytes": 518,
+      "sha256": "8b6207ace7333ce57afaaf7be6ba40e4872315edb28145cd7ef06b31d3b7bad3"
+    },
+    {
+      "path": "public-market-sources/pumpportal_migration.json",
+      "bytes": 212,
+      "sha256": "1ff004d9c5806d78c2d029b501a600cf5631faec6bdf06f0bb4c5f398cdb877d"
+    },
+    {
+      "path": "public-market-sources/rpc_getAccountInfo.json",
+      "bytes": 1433,
+      "sha256": "3145948aa2d7cad513660b7faa494aa109a89d9d834f27f791941558783cb17e"
+    },
+    {
+      "path": "public-market-sources/rpc_getAccountInfo.meta.json",
+      "bytes": 358,
+      "sha256": "e703c0dec9038acc32a984f610cabb4b121f3c1a474a5e2a34d11ca038a5834b"
+    },
+    {
+      "path": "public-market-sources/rpc_getSlot.json",
+      "bytes": 56,
+      "sha256": "4b08ce087893dc9bb127e6507f35960749f1ea394ad111311707298fa257c285"
+    },
+    {
+      "path": "public-market-sources/rpc_getSlot.meta.json",
+      "bytes": 243,
+      "sha256": "c7718401bfb73861911e7890e1a06e4f82a4d73e1963cceb70295324668db0fc"
+    },
+    {
+      "path": "public-market-sources/rpc_program_2022.json",
+      "bytes": 9736495,
+      "sha256": "2474488ca976db7c095088d5e44a69a338d17a850a6cc65e3e51441cee8e1f93"
+    },
+    {
+      "path": "public-market-sources/rpc_program_2022.meta.json",
+      "bytes": 552,
+      "sha256": "2a1a2218422679bb7a85e85f6b7f313a70f0878ed989b76b6687445941ada36c"
+    },
+    {
+      "path": "public-market-sources/rpc_program_classic.json",
+      "bytes": 49,
+      "sha256": "e64b7881f998b0e230a90712000ac39523582c19fc9b5b9caa9b906b39cf1c75"
+    },
+    {
+      "path": "public-market-sources/rpc_program_classic.meta.json",
+      "bytes": 552,
+      "sha256": "37b8854851db6b3f99d3974337cd4cd09e16c2be7946b25ad2e5306fe6f26df5"
+    },
+    {
+      "path": "public-market-sources/rugcheck_graph.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "public-market-sources/rugcheck_graph.meta.json",
+      "bytes": 224,
+      "sha256": "212b32883e5c6c6f16e91a0bece2c5ba7173b7b33613968596451ec28258d7d2"
+    },
+    {
+      "path": "public-market-sources/rugcheck_report.json",
+      "bytes": 12775,
+      "sha256": "70c29ce26cd96fbade91445a930e9772e3a626ad1e87f5cf57184782d971304a"
+    },
+    {
+      "path": "public-market-sources/rugcheck_report.meta.json",
+      "bytes": 216,
+      "sha256": "0908907f6e46f7d5926b36953388350fc10917096652e29162f0da68d098fb06"
+    },
+    {
+      "path": "public-market-sources/sample_selection.json",
+      "bytes": 164,
+      "sha256": "a66b7fd2bd1a54d5210161aa27bacaf3aa4405a802c5c97c84c8e9851afb4393"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/gap_mapping_and_limitations.json",
+      "bytes": 2416,
+      "sha256": "a078cb270983b377ded221ca4be8ac8f6ae2512f8fd612804e5079858022ff2a"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/graph_probe_summary.json",
+      "bytes": 7373,
+      "sha256": "4513acdd10eef742aa6b289772251446e0e92b5bb457ce45cf108c78e8b6c5d6"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/new_migration_metadata.json",
+      "bytes": 299,
+      "sha256": "42033a0d429fdb2e0bbd0e9631ff485f589d1a76efda7c203c131e756dc68b3d"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/official_swagger.json",
+      "bytes": 44568,
+      "sha256": "744b173f8ffda9d532b2e2fa19ab64125ac616220d8f845308bd0f9bf3c8a129"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/official_swagger.meta.json",
+      "bytes": 133,
+      "sha256": "ba5ff88ac49af151f70d5de6def3d2cded3e94d9c3a9199aade59827310bbfc8"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe1_graph.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe1_graph.meta.json",
+      "bytes": 205,
+      "sha256": "50dd334552d32fb2d5080a792f9cefd24b9ca3aa17432a6d34fd22b5e7eb3010"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe1_report.json",
+      "bytes": 15012,
+      "sha256": "4b5e50c16fb684ad3d3ee7ca67433a0c1740a4ff419c243532a5e4242abfe17d"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe1_report.meta.json",
+      "bytes": 197,
+      "sha256": "7f9664f733e2f9ed0030e90a4be8e2a31eb4998fd1170b59235e5a1e57f7c2ac"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe2_graph.json",
+      "bytes": 3957,
+      "sha256": "d3590af463744536d8f03b5510f35435e55f2c03165e5620db852a84d2f99a61"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe2_graph.meta.json",
+      "bytes": 204,
+      "sha256": "1d0bb82f739154577729829457fa777b267caed1d943d06b86459fde0cf5a2ca"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe2_report.json",
+      "bytes": 17843,
+      "sha256": "e61d4c34fdd0121d112be071dd24499cb3d7b77b006e9c5fbdcad8d5f62df4bb"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe2_report.meta.json",
+      "bytes": 196,
+      "sha256": "5ae17539fecef00872f6d15f4d14eeaed812d24a84ac0d1f1de7b2b91a22165b"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe3_graph.json",
+      "bytes": 3027,
+      "sha256": "cfe1350281b95261230c1ef97881c90b5765df1877ee73648074cdcee486dc84"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe3_graph.meta.json",
+      "bytes": 205,
+      "sha256": "f6b94361e2fbf0897b5073843ae0e863ecdcfa271c4f44e1ff7c085bde8999e0"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe3_report.json",
+      "bytes": 56421,
+      "sha256": "c4496786a6a26b0757a4db2a140609cc930fec5d5458bd75dc6d2b48bdb63916"
+    },
+    {
+      "path": "public-market-sources/gap-investigation/probe3_report.meta.json",
+      "bytes": 197,
+      "sha256": "86e659e3ea9e376608c0df7f64be002e4ea5f9ef82780adaf6e70219d180df10"
+    }
+  ],
+  "omissions": [],
+  "caveats": [
+    "HTTP403 actual-migration Dex call has failure metadata only, no success response.",
+    "sample_selection.json records initial candidate selection before later independent RugCheck origin confirmation; mapping_observed.json provides updated proof.",
+    "Original master prompt parts1/2 and omitted Executor passage not available in handoff context.",
+    "No archive fixture proves an eight-layer safety pass; missingedges/devhistory remain red."
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "timestamp_utc": "2026-11-07T11:25:34.421030+00:00",
+  "endpoint": "wss://pumpportal.fun/api/data",
+  "subscription": {
+    "method": "subscribeMigration"
+  },
+  "messages": [
+    {
+      "message": "Subscribed to 'migration' events."
+    },
+    {
+      "signature": "5QUAA6BGJKbZpvY5aA1VwJ6JymhMk3M8sJ9QXTXnCcMBtzZ4a8ZimZVuz8wbJJC8HFKwUgwuFc9YB7ThWYooeFBb",
+      "mint": "FHCntFVzzGmbcUNmf1jBGaBsi4duboB1cwjg4yrcpump",
+      "txType": "migrate",
+      "pool": "pump-amm"
+    }
+  ],
+  "migration_received": true
+}
