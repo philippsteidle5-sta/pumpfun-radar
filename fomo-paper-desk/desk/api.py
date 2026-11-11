@@ -163,7 +163,7 @@ def create_app(desk, app_token: str) -> FastAPI:
     @app.get("/api/positions")
     def positions(request: Request):
         authorize(request)
-        return {"positions": desk.db.open_positions()}
+        return {"positions": desk.paper_positions(), "mode": "PAPER", "execution_armed": False}
 
     @app.get("/api/report")
     def report(request: Request, date: str | None = None, format: str = "json"):
@@ -306,6 +306,24 @@ def create_app(desk, app_token: str) -> FastAPI:
             raise HTTPException(status_code=422, detail="endpoint must be https")
         desk.db.add_push_sub(body.endpoint, body.p256dh, body.auth, iso_utc(desk.now()))
         return {"stored": True, "sent": False}
+
+    class StopAllBody(BaseModel):
+        confirm: str
+
+    @app.get("/api/session")
+    def session(request: Request):
+        authorize(request)
+        return desk.session_recap()
+
+    @app.post("/api/paper/stop-all")
+    async def stop_all(body: StopAllBody, request: Request):
+        authorize(request)
+        return await desk.stop_and_sell_all(body.confirm)
+
+    @app.post("/api/paper/resume-entries")
+    def resume_entries(request: Request):
+        authorize(request)
+        return desk.resume_paper_entries()
 
     @app.get("/api/bridge")
     def bridge_state(request: Request):

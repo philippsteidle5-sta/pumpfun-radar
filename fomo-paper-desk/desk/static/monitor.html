@@ -14,8 +14,9 @@
         <span class="mode">PAPER</span>
       </div>
       <h1>FOMO Desk</h1>
-      <p class="sub">Eigener Desk. Fünf Prozessrollen. Keine verbundenen Grok-Bots.</p>
-      <p class="foot">Ausführung nicht scharf. Kein Live-Kontostand. Der Webhook nennt nur eine Job-ID.</p>
+      <p id="header-balance" class="balance">—</p>
+      <p id="header-multiple" class="sub">PAPER · Vielfaches gegen Start —</p>
+      <p class="foot">Paper-Fills sind simuliert und mit PAPER markiert. Live-Orders bleiben nicht scharf.</p>
     </header>
     <section id="banner" role="status" aria-live="polite"></section>
     <section id="file-start" class="card" hidden>
@@ -38,8 +39,9 @@
         <h2>Ausführung nicht scharf</h2>
         <p id="execution-copy">Nicht verbunden, bis ein Bot eine Verbindungsprüfung bestätigt. Keine Order, kein Live-Saldo, kein simulierter Fill.</p>
         <button id="bridge-check" class="secondary" type="button">Verbindungsprüfung einmal anstoßen</button>
+        <div id="bridge-note"></div>
       </section>
-      <section class="card"><div class="section-head"><h2>Live-Konto</h2></div><p class="empty">Kein FOMO-Saldo an diesem Server. Eine Paper-Zahl wird nicht als Kontostand gezeigt.</p><div id="chart"></div></section>
+      <section class="card"><div class="section-head"><h2>Paper-Equity</h2><div id="chart-ranges" class="ranges" role="group" aria-label="Zeitraum"><button type="button" data-range="4H">4H</button><button type="button" data-range="12H" aria-pressed="true">12H</button><button type="button" data-range="1D">1D</button><button type="button" data-range="1W">1W</button></div></div><p class="empty">Nur gebuchte Paper-Snapshots. Keine erfundene Kurve.</p><div id="chart"></div></section>
       <section class="card" id="scan-board">
         <h2>Suche</h2>
         <p class="empty">Wirksame Schwellen, öffentliche Quellen und gespeicherte Urteile. Schwellen werden nicht gelockert.</p>
@@ -48,7 +50,8 @@
         <div id="scan-candidates"></div>
       </section>
       <section class="card"><h2>Rollen in diesem Prozess</h2><p class="empty">Das sind Desk-Rollen, keine externen Bots. Ein grüner Punkt erscheint nur am Migrationsfeed, und nur nach einem frischen Frame.</p><div id="agents" class="agent-grid"></div></section>
-      <section class="card"><h2>Live-Positionen</h2><div id="positions"></div></section>
+      <section class="card"><div class="section-head"><h2>Offene Paper-Positionen</h2><button id="stop-all" class="danger" type="button">Stop &amp; sell all</button></div><div id="positions"></div></section>
+      <section class="card" id="recap-card"><h2>Session</h2><div id="recap"></div></section>
       <section class="card" id="coin-detail" hidden><h2>Münze</h2><div id="coin-body"></div></section>
       <section class="card"><h2>Aktivität</h2><div id="activity"></div><button id="more-activity" class="secondary" hidden>Ältere laden</button></section>
       <details class="card"><summary>Verbindung</summary><div id="status"></div></details>
@@ -70,6 +73,11 @@
     </div>
     <p class="foot">Zustellung nur in der Oberfläche. Die Outbox sendet nichts. Handel bleibt PAPER.</p>
   </main>
+  <dialog id="stop-dialog">
+    <h2>Stop &amp; sell all</h2>
+    <p>Alle offenen PAPER-Positionen werden zum aktuellen Feed-Preis geschlossen. Neue Paper-Einstiege stoppen. Ein Live-Konto wird nicht angefasst.</p>
+    <div class="dialog-actions"><button id="stop-cancel" class="secondary" type="button">Abbrechen</button><button id="stop-confirm" class="danger" type="button">Schließen</button></div>
+  </dialog>
   <script src="./monitor.js"></script>
 </body>
 </html>

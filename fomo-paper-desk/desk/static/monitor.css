@@ -54,7 +54,15 @@ header h1 {
 .freshness.fresh { color: var(--green); }
 .freshness.fresh::before { background: var(--green); }
 .hero { display: grid; grid-template-columns: 1.4fr repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
-.hero .metric:first-child strong { font-size: clamp(32px, 5vw, 48px); }
+.balance { margin: 8px 0 0; font-size: clamp(36px, 8vw, 56px); font-weight: 700; letter-spacing: -1px; }
+.ranges { display: flex; gap: 6px; }
+.ranges button { background: #232d3c; color: #d2dbe7; padding: 8px 10px; font-size: 13px; }
+.ranges button[aria-pressed="true"] { background: #32d74b; color: #05210c; }
+button.danger { background: #ff453a; color: white; }
+dialog { background: #141a23; color: var(--text); border: 1px solid #5c2a2a; border-radius: 16px; max-width: 420px; }
+dialog::backdrop { background: rgba(0, 0, 0, 0.72); }
+.dialog-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.hero .metric:first-child strong { font-size: clamp(28px, 6vw, 42px); }
 .pos { color: var(--green) !important; }
 .neg { color: var(--red) !important; }
 .execution { border-color: #5c2a2a; }

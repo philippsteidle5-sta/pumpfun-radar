@@ -800,6 +800,9 @@ class Desk:
 
     async def execute_mint(self, mint: str) -> dict | None:
         settings = self.settings()
+        if settings.get("desk.entries_halted"):
+            self.db.heartbeat("executor", self.now(), "blocked", "new paper entries halted")
+            return {"agent": "executor", "mint": mint, "status": "skipped", "reason": "entries halted", "mode": "PAPER"}
         nid = self.night()
         coin = self.db.coin(mint) or {}
         link = coin_url(mint)
@@ -923,7 +926,7 @@ class Desk:
                 mint=mint,
                 agent="executor",
                 title=f"Bought {coin.get('name') or mint}",
-                subtitle=f"Executor · {stamp}",
+                subtitle=f"PAPER · Executor · {stamp}",
                 value=f"${fmt_money(plan.size)} · {fmt_pct(plan.stack_pct)}% stack",
                 link=link,
             )
@@ -1188,6 +1191,10 @@ class Desk:
             title = f"Sold {name}"
             subtitle = "Risk · timeout"
             value = f"{fmt_money(economics.net_pnl)} / {fmt_pct(gross)}%"
+        elif reason == "flatten":
+            title = f"Sold {name}"
+            subtitle = "PAPER · stop all"
+            value = f"{fmt_money(economics.net_pnl)} / {fmt_pct(gross)}%"
         else:
             title = f"Sold {name}"
             subtitle = "Risk · pulled · stale last price, no executable guarantee"
@@ -1224,6 +1231,119 @@ class Desk:
         self.db.add_event(self.now(), "exit", output)
         self.db.add_decision("risk", position["mint"], self.now(), output, self.night())
         self.db.snapshot_balance(self.now(), "exit")
+
+    async def stop_and_sell_all(self, confirm: str | None) -> dict:
+        """Close paper positions at a real feed price and halt new paper entries."""
+        if confirm != "STOP ALL":
+            raise SettingsError("confirm must be STOP ALL", key="confirm")
+        self.db.update_settings({"desk.entries_halted": True}, "owner", self.now())
+        open_rows = self.db.open_positions()
+        paper = [row for row in open_rows if row["mode"] == "PAPER"]
+        live = [row["mint"] for row in open_rows if row["mode"] != "PAPER"]
+        prices: dict[str, Decimal] = {}
+        provenance: dict[str, str] = {}
+        if paper:
+            read = await self._dex_read([row["mint"] for row in paper])
+            rows = read["rows"] or []
+            for row in paper:
+                pair = select_pumpswap_pair(rows, row["mint"]) if rows else None
+                if pair is not None and pair.price_usd is not None:
+                    prices[row["mint"]] = D(pair.price_usd)
+                    provenance[row["mint"]] = "paper-stop-all-dex"
+                elif row.get("last_price"):
+                    prices[row["mint"]] = D(row["last_price"])
+                    provenance[row["mint"]] = "paper-stop-all-last-feed-price"
+        closed = []
+        held = []
+        settings = self.settings()
+        for row in paper:
+            price = prices.get(row["mint"])
+            if price is None:
+                held.append({"mint": row["mint"], "reason": "no current price"})
+                continue
+            self._exit(row, "flatten", price, provenance[row["mint"]], settings)
+            closed.append(row["mint"])
+        return {
+            "halted": True,
+            "closed": closed,
+            "held": held,
+            "live_untouched": live,
+            "execution_armed": False,
+            "mode": "PAPER",
+        }
+
+    def resume_paper_entries(self) -> dict:
+        self.db.update_settings({"desk.entries_halted": False}, "owner", self.now())
+        self.db.heartbeat("executor", self.now(), "idle", "paper entries resumed")
+        return {"halted": False, "execution_armed": False, "mode": "PAPER"}
+
+    def session_recap(self) -> dict:
+        rows = [row for row in self.db.closed_positions() if row["mode"] == "PAPER" and not row.get("testdata")]
+        profit = cents(sum((D(row["pnl_usd"]) for row in rows), Decimal(0))) if rows else Decimal(0)
+        wins = [row for row in rows if D(row["pnl_usd"]) > 0]
+        stops = [row for row in rows if row.get("exit_reason") == "stop"]
+        best = max(rows, key=lambda row: D(row["pnl_usd"])) if rows else None
+        multiples = []
+        for row in rows:
+            entry = D(row["entry_price"])
+            exit_price = D(row["exit_price"]) if row.get("exit_price") else None
+            if entry > 0 and exit_price is not None and exit_price > 0:
+                multiples.append((exit_price / entry, row))
+        best_multiple = max(multiples, key=lambda item: item[0]) if multiples else None
+        return {
+            "mode": "PAPER",
+            "profit_usd": str(profit),
+            "trade_count": len(rows),
+            "win_rate_pct": None if not rows else str(cents(Decimal(len(wins)) / Decimal(len(rows)) * Decimal(100))),
+            "stops_triggered": len(stops),
+            "best_trade": None
+            if best is None
+            else {"name": best.get("name") or best["mint"], "mint": best["mint"], "pnl_usd": str(D(best["pnl_usd"]))},
+            "best_multiple": None
+            if best_multiple is None
+            else {
+                "name": best_multiple[1].get("name") or best_multiple[1]["mint"],
+                "mint": best_multiple[1]["mint"],
+                "multiple": str(cents(best_multiple[0])),
+            },
+            "execution_armed": False,
+        }
+
+    def paper_positions(self) -> list[dict]:
+        rendered = []
+        for row in self.db.open_positions():
+            if row["mode"] != "PAPER":
+                continue
+            metric = self.db.metric(row["mint"])
+            payload = {} if metric is None else metric.get("payload") or {}
+            entry = D(row["entry_price"]) if row.get("entry_price") else None
+            last = D(row["last_price"]) if row.get("last_price") else None
+            pnl = None
+            pct = None
+            if entry is not None and last is not None and entry > 0:
+                pnl = cents(D(row["size_usd"]) * (last - entry) / entry)
+                pct = cents((last - entry) / entry * Decimal(100))
+            rendered.append(
+                {
+                    "mint": row["mint"],
+                    "name": row.get("name"),
+                    "symbol": row.get("symbol"),
+                    "status": row["status"],
+                    "mode": "PAPER",
+                    "size_usd": row["size_usd"],
+                    "entry_price": row["entry_price"],
+                    "last_price": row.get("last_price"),
+                    "last_price_at": row.get("last_price_at"),
+                    "stop_price": row.get("stop_price"),
+                    "trail_active": bool(row.get("trail_active")),
+                    "unrealized_pnl_usd": None if pnl is None else str(pnl),
+                    "unrealized_pct": None if pct is None else str(pct),
+                    "market_cap": payload.get("market_cap"),
+                    "market_cap_at": None if metric is None else metric.get("ts"),
+                    "label": "PAPER",
+                }
+            )
+        return rendered
 
     def expire_confirmations(self) -> None:
         window = D(self.settings()["executor.confirm_window_min"])
@@ -1715,13 +1835,16 @@ class Desk:
             "agents": cards,
             "exposure": len(self.db.open_positions()),
             "live_allowed": False,
+            "entries_halted": bool(self.settings().get("desk.entries_halted")),
+            "start_balance": str(D(self.settings()["desk.paper_start_stack"])),
+            "execution_armed": False,
         }
 
     def chart(self, range_name: str) -> dict:
         """LIVE is the current owner-night, not a fixed 15-minute window."""
-        allowed = ("LIVE", "1H", "4H", "1D", "1W", "ALL")
+        allowed = ("LIVE", "1H", "4H", "12H", "1D", "1W", "ALL")
         if range_name not in allowed:
-            raise SettingsError("range must be LIVE, 1H, 4H, 1D, 1W, or ALL", key="range")
+            raise SettingsError("range must be LIVE, 1H, 4H, 12H, 1D, 1W, or ALL", key="range")
         now = self.now()
         start = None
         if range_name == "LIVE":
@@ -1734,7 +1857,7 @@ class Desk:
                 midnight = datetime.combine(local.date(), time.min, tzinfo=timezone.utc)
                 start = midnight - timedelta(hours=offset)
         elif range_name != "ALL":
-            hours = {"1H": 1, "4H": 4, "1D": 24, "1W": 168}[range_name]
+            hours = {"1H": 1, "4H": 4, "12H": 12, "1D": 24, "1W": 168}[range_name]
             start = now - timedelta(hours=hours)
         points = []
         for row in self.db.balance_series():

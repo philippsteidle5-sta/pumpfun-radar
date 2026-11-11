@@ -102,6 +102,7 @@ SPECS: dict[str, Spec] = {
         Spec("risk.timeout_min_gain_pct", "decimal", _d("5"), _d("-100"), _d("100000"), unit="pct"),
         Spec("risk.confirm_window_min", "decimal", _d("2"), _d("0.1"), _d("1440"), unit="min"),
         Spec("desk.mode", "enum", "PAPER", choices=("PAPER", "LIVE")),
+        Spec("desk.entries_halted", "bool", False),
         Spec("desk.paper_start_stack", "decimal", _d("200"), _d("0"), _d("1000000000000"), unit="usd"),
         Spec("desk.declared_stack", "decimal", _d("0"), _d("0"), _d("1000000000000"), unit="usd"),
         Spec("desk.report_time", "time", "08:00"),

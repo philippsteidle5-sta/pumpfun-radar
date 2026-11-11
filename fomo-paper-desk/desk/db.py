@@ -915,6 +915,13 @@ class Database:
             result.append(item)
         return result
 
+    def closed_positions(self) -> list[dict]:
+        with self._lock:
+            rows = self.con.execute(
+                "SELECT * FROM positions WHERE status = 'closed' AND pnl_booked = 1 ORDER BY closed_at, id"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def open_positions(self) -> list[dict]:
         with self._lock:
             rows = self.con.execute(

@@ -169,6 +169,7 @@ function line(name, value, state) {
 }
 
 let refreshing = false;
+let chartRange = "12H";
 let activeTab = "overview";
 let nextActivity = null;
 const activityRows = new Map();
@@ -193,17 +194,21 @@ async function refresh() {
   if (refreshing) return;
   refreshing = true;
   try {
-    const [view, state, bridge, activity] = await Promise.all([
+    const [view, state, bridge, activity, positions, chart, session] = await Promise.all([
       api("/api/monitor"), api("/api/state"), api("/api/bridge"), api("/api/activity"),
+      api("/api/positions"), api("/api/chart?range=" + chartRange), api("/api/session"),
     ]);
     if (!token()) return;
     document.getElementById("login").hidden = true;
     document.getElementById("workspace").hidden = false;
     render(view);
+    renderHeader(state);
+    renderSummary(state);
     renderBridge(bridge);
     renderAgents(state, bridge);
-    renderPositions();
-    renderChart();
+    renderPositions(positions.positions || []);
+    renderChart(chart);
+    renderRecap(session);
     mergeActivity(activity, false);
     if (!document.getElementById("report-date").value) document.getElementById("report-date").value = state.night_id;
     if (activeTab === "report") await loadReport();
@@ -216,8 +221,31 @@ async function refresh() {
   }
 }
 
-function renderBridge(bridge) {
+function renderHeader(state) {
+  document.getElementById("header-balance").textContent = money(state.balance);
+  const multiple = state.multiplier == null ? "—" : state.multiplier + "×";
+  const halted = state.entries_halted ? " · neue Einstiege gestoppt" : "";
+  document.getElementById("header-multiple").textContent = "PAPER · " + multiple + " gegen Start " + money(state.start_balance) + halted;
+}
+
+function renderSummary(state) {
   const host = document.getElementById("summary"); host.replaceChildren();
+  const profit = Number(state.balance) - Number(state.start_balance);
+  const rows = [
+    ["Paper-Kontostand", money(state.balance), ""],
+    ["Gegen Start", (Number.isFinite(profit) && profit > 0 ? "+" : "") + money(profit), profit < 0 ? "neg" : profit > 0 ? "pos" : ""],
+    ["Vielfaches", state.multiplier == null ? "—" : state.multiplier + "×", ""],
+  ];
+  for (const [label, value, tone] of rows) {
+    const card = document.createElement("div"); card.className = "metric";
+    const small = document.createElement("small"); small.textContent = label;
+    const strong = document.createElement("strong"); strong.className = tone; strong.textContent = value;
+    card.append(small, strong); host.append(card);
+  }
+}
+
+function renderBridge(bridge) {
+  const host = document.getElementById("bridge-note"); host.replaceChildren();
   const armed = document.createElement("div"); armed.className = "metric";
   const armedLabel = document.createElement("small"); armedLabel.textContent = "Ausführung";
   const armedValue = document.createElement("strong"); armedValue.className = "neg"; armedValue.textContent = "NICHT SCHARF";
@@ -250,7 +278,7 @@ function renderFreshness(view) {
 
 function renderExecution() {
   const text = document.getElementById("execution-copy");
-  if (text) text.textContent = "Nicht verbunden, bis ein Bot eine Verbindungsprüfung bestätigt. Keine Order, kein Live-Saldo, kein simulierter Fill.";
+  if (text) text.textContent = "PAPER-Handel läuft nach den bestehenden Regeln. Live-Orders sind nicht scharf. Ein Bot gilt erst nach einem echten Ack als verbunden.";
 }
 
 function renderSearch(view) {
@@ -411,7 +439,8 @@ function renderAgents(state, bridge) {
   const labels = {paused: "Pausiert", running: "Lokaler Schritt", starting: "Startet", stalled: "Heartbeat älter als 120s", idle: "Wartet", held: "Auditor aus", backoff: "Cooldown", error: "Quellenfehler"};
   for (const agent of state.agents) {
     const card = document.createElement("article"); card.className = "agent";
-    const title = document.createElement("h3"); title.textContent = agent.name;
+    const names = {scanner: "Scanner", auditor: "Auditor", analyst: "Analyst", executor: "Executor / Sizer", risk: "Risk / Exit-Trailing"};
+    const title = document.createElement("h3"); title.textContent = names[agent.name] || agent.name;
     const badge = document.createElement("span"); badge.className = "badge " + agent.name; badge.textContent = "Prozessrolle";
     const status = document.createElement("p"); status.textContent = labels[agent.status] || agent.status;
     const detail = document.createElement("p"); detail.className = "empty";
@@ -433,16 +462,59 @@ function renderAgents(state, bridge) {
   }
 }
 
-function renderPositions() {
+function renderPositions(positions) {
   const host = document.getElementById("positions"); host.replaceChildren();
-  host.append(empty("Keine Live-Position. Ausführung ist nicht scharf. Ein Paper-Ledger wird hier nicht als Fill gezeigt."));
+  if (!positions.length) { host.append(empty("Keine offene PAPER-Position. Ein Kandidat erscheint hier erst, wenn die bestehenden Regeln passen.")); return; }
+  for (const position of positions) {
+    const card = document.createElement("article"); card.className = "position";
+    const title = document.createElement("h3"); title.textContent = "PAPER · " + (position.symbol || position.name || position.mint);
+    card.append(title);
+    const pnl = position.unrealized_pnl_usd;
+    const pnlText = pnl == null ? "kein Feed-Preis" : money(pnl) + (position.unrealized_pct == null ? "" : " · " + position.unrealized_pct + " %");
+    card.append(line("Mark-to-Market", pnlText, pnl == null ? "missing" : Number(pnl) < 0 ? "fail" : "pass"));
+    card.append(line("Market Cap", position.market_cap == null ? "keine Dex-Angabe" : money(position.market_cap), ""));
+    card.append(line("Einsatz", money(position.size_usd), ""));
+    card.append(line("Einstieg", position.entry_price ?? "—", ""));
+    card.append(line("Letzter Preis", position.last_price ?? "keine Daten", ""));
+    card.append(line("Stop", position.stop_price ?? "—", ""));
+    card.append(line("Trail", position.trail_active ? "aktiv" : "wartet", ""));
+    host.append(card);
+  }
+}
+
+function renderRecap(session) {
+  const host = document.getElementById("recap"); host.replaceChildren();
+  const best = session.best_trade ? session.best_trade.name + " · " + money(session.best_trade.pnl_usd) : "—";
+  const multiple = session.best_multiple ? session.best_multiple.name + " · " + session.best_multiple.multiple + "×" : "—";
+  const rate = session.win_rate_pct == null ? "keine Trades" : session.win_rate_pct + " %";
+  for (const [label, value] of [["Gewinn", money(session.profit_usd)], ["Trades", String(session.trade_count)], ["Trefferquote", rate], ["Stops", String(session.stops_triggered)], ["Bester Trade", best], ["Bestes Vielfaches", multiple]]) {
+    host.append(line(label, value, ""));
+  }
+  host.append(empty("Nur geschlossene PAPER-Fills. Kein Live-Ergebnis."));
 }
 
 function empty(text) { const p = document.createElement("p"); p.className = "empty"; p.textContent = text; return p; }
 
-function renderChart() {
+function renderChart(chart) {
   const host = document.getElementById("chart"); host.replaceChildren();
-  host.append(empty("Keine Live-Kurve. Simulierte Paper-Buchungen werden nicht als Kontostand gezeichnet."));
+  const points = (chart.points || []).filter(point => Number.isFinite(Number(point.value)));
+  if (!points.length) { host.append(empty("Noch kein gebuchter Paper-Snapshot in diesem Fenster.")); return; }
+  if (points.length === 1) { host.append(empty(money(points[0].value) + " · ein Snapshot, keine Linie.")); return; }
+  const values = points.map(point => Number(point.value));
+  const low = Math.min(...values), high = Math.max(...values);
+  const start = Date.parse(points[0].t), end = Date.parse(points.at(-1).t);
+  const coordinates = points.map(point => [12 + (Date.parse(point.t) - start) / (end - start || 1) * 976, 150 - (Number(point.value) - low) / (high - low || 1) * 120]);
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 1000 170");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Paper-Equity von " + money(values[0]) + " bis " + money(values.at(-1)));
+  const path = document.createElementNS(svg.namespaceURI, "polyline");
+  path.setAttribute("points", coordinates.map(point => point.join(",")).join(" "));
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", "#f5f5f7");
+  path.setAttribute("stroke-width", "3");
+  svg.append(path);
+  host.append(svg);
 }
 
 function mergeActivity(page, older) {
@@ -452,8 +524,8 @@ function mergeActivity(page, older) {
   const host = document.getElementById("activity"); host.replaceChildren();
   if (!activityRows.size) host.append(empty("Noch keine Aktivitäten."));
   for (const row of [...activityRows.values()].sort((a,b) => b.id - a.id)) {
-    if (row.kind === "bought" || row.kind === "sold" || row.kind === "stopped" || row.kind === "fill") continue;
-    host.append(line(row.title || row.kind, [stamp(row.ts), row.subtitle, row.value].filter(Boolean).join(" · "), row.kind === "rejected" ? "fail" : ""));
+    const title = row.kind === "bought" || row.kind === "sold" || row.kind === "stopped" ? "PAPER · " + (row.title || row.kind) : (row.title || row.kind);
+    host.append(line(title, [stamp(row.ts), row.subtitle, row.value].filter(Boolean).join(" · "), row.kind === "rejected" || row.kind === "stopped" ? "fail" : ""));
   }
   document.getElementById("more-activity").hidden = nextActivity == null;
 }
@@ -496,6 +568,23 @@ document.querySelectorAll("[data-tab]").forEach(button => button.onclick = () =>
   document.querySelectorAll("[data-tab]").forEach(tab => tab.setAttribute("aria-pressed", String(tab === button)));
   if (activeTab === "report") loadReport().catch(error => announce(error.message));
 });
+document.querySelectorAll("[data-range]").forEach(button => button.onclick = () => {
+  chartRange = button.dataset.range;
+  document.querySelectorAll("[data-range]").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+  refresh();
+});
+document.getElementById("stop-all").onclick = () => document.getElementById("stop-dialog").showModal();
+document.getElementById("stop-cancel").onclick = () => document.getElementById("stop-dialog").close();
+document.getElementById("stop-confirm").onclick = async () => {
+  const button = document.getElementById("stop-confirm");
+  button.disabled = true;
+  try {
+    await api("/api/paper/stop-all", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({confirm: "STOP ALL"})});
+    document.getElementById("stop-dialog").close();
+    await refresh();
+  } catch (error) { announce(error.message); }
+  finally { button.disabled = false; }
+};
 document.getElementById("bridge-check").onclick = async () => {
   const button = document.getElementById("bridge-check");
   button.disabled = true;

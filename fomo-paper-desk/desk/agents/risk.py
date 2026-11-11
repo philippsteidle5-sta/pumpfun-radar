@@ -82,6 +82,8 @@ def paper_exit_text(*, mode: str, name: str, reason: str, stop_pct: object, net_
         return prefix + f"Sell {name}, dead money · {fmt_signed_pct(gross)}% in {fmt_pct(timeout_h)}h"
     if reason == "pulled":
         return prefix + f"Sell {name}, liquidity pulled · last price, no executable guarantee"
+    if reason == "flatten":
+        return prefix + f"Sold {name} · stop all · {fmt_signed_pct(gross)}%"
     raise ValueError(reason)
 
 
