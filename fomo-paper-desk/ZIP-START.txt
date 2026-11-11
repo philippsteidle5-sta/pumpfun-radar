@@ -1,0 +1,11 @@
+FOMO Paper Desk
+
+1. ZIP vollstaendig entpacken.
+2. Python 3.12 oder neuer muss installiert sein.
+3. Start.cmd doppelklicken. Beim ersten Start werden die Abhaengigkeiten geladen.
+4. Der Browser oeffnet den lokalen Desk automatisch.
+
+Enthalten: Quellcode, Starter, Tests, Fixtures, Dokumentation und gepruefte Vorschauen.
+Die rechnergebundene .venv, Cache, Laufzeit-Logs, Datenbank und Zugangstoken sind nicht enthalten.
+Der Starter erstellt Umgebung, Datenbank und Token neu.
+Handel bleibt PAPER.

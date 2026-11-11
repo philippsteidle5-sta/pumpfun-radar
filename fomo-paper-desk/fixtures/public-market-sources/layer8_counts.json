@@ -1,0 +1,14 @@
+{
+  "rpc_program_classic": {
+    "full_result_count": 0,
+    "all_parsed_token_accounts_matching_mint": true,
+    "positive_balance_accounts": 0,
+    "delegate_fields_present": 0
+  },
+  "rpc_program_2022": {
+    "full_result_count": 9420,
+    "all_parsed_token_accounts_matching_mint": true,
+    "positive_balance_accounts": 9113,
+    "delegate_fields_present": 0
+  }
+}

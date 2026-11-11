@@ -1,0 +1,7 @@
+{
+  "timestamp_utc": "2026-11-07T11:25:42.230616+00:00",
+  "url": "https://api.dexscreener.com/latest/dex/search?q=pumpswap",
+  "request": null,
+  "http_status": 200,
+  "success": true
+}

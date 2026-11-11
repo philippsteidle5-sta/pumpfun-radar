@@ -1,0 +1,82 @@
+[
+  {
+    "chainId": "solana",
+    "dexId": "pumpswap",
+    "url": "https://dexscreener.com/solana/ans69udtbmcwbw7zucyxlz4hmcqkvzpmtcw9zjpzqgkr",
+    "pairAddress": "ANS69UDTbMCWbW7ZuCYXLZ4HMCQkvzPMtCW9zjPZQGKR",
+    "baseToken": {
+      "address": "DKtofLM6bhb54GQy5YFSWQjQmGiZqAkjzkQJ1LTopump",
+      "name": "Diamond Hands",
+      "symbol": "HODL"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.00004468",
+    "priceUsd": "0.004010",
+    "txns": {
+      "m5": {
+        "buys": 408,
+        "sells": 312
+      },
+      "h1": {
+        "buys": 5731,
+        "sells": 4350
+      },
+      "h6": {
+        "buys": 33042,
+        "sells": 24629
+      },
+      "h24": {
+        "buys": 122909,
+        "sells": 53726
+      }
+    },
+    "volume": {
+      "h24": 2502534.04,
+      "h6": 456110.92,
+      "h1": 61790.8,
+      "m5": 4130.63
+    },
+    "priceChange": {
+      "m5": -0.22,
+      "h1": -5.57,
+      "h6": -1.51,
+      "h24": 7992
+    },
+    "liquidity": {
+      "usd": 165922.11,
+      "base": 20816203,
+      "quote": 918.4105
+    },
+    "fdv": 3992659,
+    "marketCap": 3992659,
+    "pairCreatedAt": 1794006579000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/9O6sRVd7a47T3cn7?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/knQ94oZ6rqKbmJz4?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/DKtofLM6bhb54GQy5YFSWQjQmGiZqAkjzkQJ1LTopump?timestamp=1794050700000",
+      "websites": [
+        {
+          "url": "https://hodlonsol.vip",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/hodlonsolvip",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/hodlsolsite",
+          "type": "telegram"
+        }
+      ]
+    },
+    "boosts": {
+      "active": 100
+    }
+  }
+]

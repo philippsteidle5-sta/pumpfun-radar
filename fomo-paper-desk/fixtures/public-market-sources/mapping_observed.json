@@ -1,0 +1,212 @@
+{
+  "timestamp_utc": "2026-11-07T11:26:17.005380+00:00",
+  "sample_mint": "DKtofLM6bhb54GQy5YFSWQjQmGiZqAkjzkQJ1LTopump",
+  "sample_pair_url": "https://dexscreener.com/solana/ans69udtbmcwbw7zucyxlz4hmcqkvzpmtcw9zjpzqgkr",
+  "pumpfun_origin_evidence": {
+    "source": "rugcheck_report.json",
+    "path": "$.launchpad.platform",
+    "value": "pump_fun"
+  },
+  "dex": {
+    "pairAddress": {
+      "path": "$[0].pairAddress",
+      "value": "ANS69UDTbMCWbW7ZuCYXLZ4HMCQkvzPMtCW9zjPZQGKR"
+    },
+    "baseToken.address": {
+      "path": "$[0].baseToken.address",
+      "value": "DKtofLM6bhb54GQy5YFSWQjQmGiZqAkjzkQJ1LTopump"
+    },
+    "baseToken.name": {
+      "path": "$[0].baseToken.name",
+      "value": "Diamond Hands"
+    },
+    "baseToken.symbol": {
+      "path": "$[0].baseToken.symbol",
+      "value": "HODL"
+    },
+    "dexId": {
+      "path": "$[0].dexId",
+      "value": "pumpswap"
+    },
+    "priceUsd": {
+      "path": "$[0].priceUsd",
+      "value": "0.004010"
+    },
+    "liquidity.usd": {
+      "path": "$[0].liquidity.usd",
+      "value": 165922.11
+    },
+    "marketCap": {
+      "path": "$[0].marketCap",
+      "value": 3992659
+    },
+    "pairCreatedAt": {
+      "path": "$[0].pairCreatedAt",
+      "value": 1794006579000
+    },
+    "volume.m5": {
+      "path": "$[0].volume.m5",
+      "value": 4130.63
+    },
+    "volume.h1": {
+      "path": "$[0].volume.h1",
+      "value": 61790.8
+    },
+    "volume.h24": {
+      "path": "$[0].volume.h24",
+      "value": 2502534.04
+    },
+    "priceChange.m5": {
+      "path": "$[0].priceChange.m5",
+      "value": -0.22
+    },
+    "priceChange.h1": {
+      "path": "$[0].priceChange.h1",
+      "value": -5.57
+    },
+    "priceChange.h24": {
+      "path": "$[0].priceChange.h24",
+      "value": 7992
+    },
+    "txns.m5.buys": {
+      "path": "$[0].txns.m5.buys",
+      "value": 408
+    },
+    "txns.m5.sells": {
+      "path": "$[0].txns.m5.sells",
+      "value": 312
+    },
+    "txns.h1.buys": {
+      "path": "$[0].txns.h1.buys",
+      "value": 5731
+    },
+    "txns.h1.sells": {
+      "path": "$[0].txns.h1.sells",
+      "value": 4350
+    }
+  },
+  "rugcheck": {
+    "creator": {
+      "path": "$.creator",
+      "value": "9NkVW544fKy2kkU5ZxJFa1xy6C7LssPKZAW5XWbK5XG5"
+    },
+    "creatorBalance_current_not_migration_baseline": {
+      "path": "$.creatorBalance",
+      "value": 0
+    },
+    "pool_match": {
+      "path": "$.markets[0].pubkey",
+      "value": "ANS69UDTbMCWbW7ZuCYXLZ4HMCQkvzPMtCW9zjPZQGKR"
+    },
+    "lp_locked_pct": {
+      "path": "$.markets[0].lp.lpLockedPct",
+      "value": 100
+    },
+    "lp_locked_amount": {
+      "path": "$.markets[0].lp.lpLocked",
+      "value": 4193388282605
+    },
+    "lp_total_supply": {
+      "path": "$.markets[0].lp.lpTotalSupply",
+      "value": 4193388282605
+    },
+    "lp_burned_pct": {
+      "path": null,
+      "value": null
+    },
+    "graph_nodes": {
+      "path": null,
+      "value": null
+    },
+    "graph_edges": {
+      "path": null,
+      "value": null
+    },
+    "graph_holder_identity": {
+      "path": null,
+      "value": null
+    }
+  },
+  "rpc": {
+    "mintAuthority": {
+      "path": "$.result.value.data.parsed.info.mintAuthority",
+      "value": null
+    },
+    "freezeAuthority": {
+      "path": "$.result.value.data.parsed.info.freezeAuthority",
+      "value": null
+    },
+    "supply": {
+      "path": "$.result.value.data.parsed.info.supply",
+      "value": "995525164373836"
+    },
+    "decimals": {
+      "path": "$.result.value.data.parsed.info.decimals",
+      "value": 6
+    },
+    "token_accounts": {
+      "identity_path": "$.result[*].pubkey",
+      "wallet_owner_path": "$.result[*].account.data.parsed.info.owner",
+      "mint_path": "$.result[*].account.data.parsed.info.mint",
+      "balance_path": "$.result[*].account.data.parsed.info.tokenAmount.amount",
+      "decimals_path": "$.result[*].account.data.parsed.info.tokenAmount.decimals",
+      "delegate_observed_path": null,
+      "delegate_value": null,
+      "notes": "No returned token-account info has delegate key; not a fabricated delegated-account example."
+    }
+  },
+  "notes": [
+    "No audit executed; source proof only.",
+    "Rugcheck graph successful HTTP200 JSON [] contains no edges key: layer7 no data: bundles. Holder-only graph cannot be established.",
+    "lpLockedPct observed 100 on 0-100 scale; lpLocked equals lpTotalSupply in this sample. No separate burned-percent field observed; do not label 100% burned.",
+    "All Token2022 accounts requested with memcmp offset0 only; no dataSize165 and no result slicing.",
+    "Positive counts are token accounts, not unique wallets; include pool accounts.",
+    "Migration creator baseline and never-sold evidence unavailable for historical sample; current creatorBalance is not baseline.",
+    "Actual migration received through sole WebSocket; $.txType=migrate, creator absent. Historical independently Pump.Fun/PumpSwap-verified sample used for RPC/RugCheck proofs."
+  ],
+  "layer8_proof": {
+    "rpc_program_classic": {
+      "full_result_count": 0,
+      "all_parsed_token_accounts_matching_mint": true,
+      "positive_balance_accounts": 0,
+      "delegate_fields_present": 0
+    },
+    "rpc_program_2022": {
+      "full_result_count": 9420,
+      "all_parsed_token_accounts_matching_mint": true,
+      "positive_balance_accounts": 9113,
+      "delegate_fields_present": 0
+    }
+  },
+  "pumpportal": {
+    "mint": {
+      "path": "$.mint",
+      "value": "FHCntFVzzGmbcUNmf1jBGaBsi4duboB1cwjg4yrcpump"
+    },
+    "pool": {
+      "path": "$.pool",
+      "value": "pump-amm"
+    },
+    "signature": {
+      "path": "$.signature",
+      "value": "5QUAA6BGJKbZpvY5aA1VwJ6JymhMk3M8sJ9QXTXnCcMBtzZ4a8ZimZVuz8wbJJC8HFKwUgwuFc9YB7ThWYooeFBb"
+    },
+    "creator": {
+      "path": null,
+      "value": null
+    },
+    "pool_address": {
+      "path": null,
+      "value": null,
+      "note": "Observed $.pool = pump-amm is a label, not a base58 pool address. Resolve actual pairAddress through DexScreener; do not treat label as pool public key."
+    }
+  },
+  "source_docs": [
+    "https://pumpportal.fun/data-api/real-time",
+    "https://docs.dexscreener.com/api/reference",
+    "https://api.rugcheck.xyz/swagger/index.html",
+    "https://solana.com/docs/rpc/http/getprogramaccounts",
+    "https://www.solana-program.com/docs/token",
+    "https://github.com/solana-labs/solana-program-library/blob/master/docs/src/token-2022.md"
+  ]
+}

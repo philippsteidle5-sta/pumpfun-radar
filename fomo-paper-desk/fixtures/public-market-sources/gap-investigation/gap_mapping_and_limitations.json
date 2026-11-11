@@ -1,0 +1,51 @@
+{
+  "timestamp_utc": "2026-11-07T11:29:07.519785+00:00",
+  "official_schema": {
+    "source": "https://api.rugcheck.xyz/swagger/doc.json",
+    "path": "$.paths[\"/v1/tokens/{id}/insiders/graph\"].get",
+    "success_response_schema": null,
+    "notes": "Only HTTP400 response documented; no graph field definitions found in downloaded official schema."
+  },
+  "observed_nonempty_graph": {
+    "root": "array of network objects",
+    "network_keys": [
+      "net_id",
+      "network_type",
+      "nodes",
+      "links",
+      "relatedMint"
+    ],
+    "network_type_values": [
+      "transfer"
+    ],
+    "node_id": "$[*].nodes[*].id",
+    "node_participant": "$[*].nodes[*].participant",
+    "node_holdings": "$[*].nodes[*].holdings",
+    "link_source": "$[*].links[*].source",
+    "link_target": "$[*].links[*].target",
+    "edges": null,
+    "notes": [
+      "Nonempty data exists on 2/3 additional independently Pump.Fun/PumpSwap-verified mints; empty[] is not universal.",
+      "Graph includes zero-holdings nodes: not holder-only.",
+      "holdings units, freshness, completeness and precise transfer/funding semantics not established by official schema.",
+      "Do not substitute links for edges or cluster size for required holder-induced connected components without explicit requirement approval.",
+      "Current missing-edges=>red rule remains unchanged, including nonempty samples."
+    ]
+  },
+  "creator_observation_limits": [
+    "RugCheck $.creator can supply fallback if available, but no official response-latency guarantee established.",
+    "getTokenAccountsByOwner creator + mint jsonParsed provides observation-time accounts/balances and context.slot, not historical migration-time balance.",
+    "60-second polls can miss sells followed by replenishment between snapshots. Even lossless snapshots show net balance changes, not necessarily whether any sell took place.",
+    "Balance decreases can be transfers, not necessarily sales. Never sold or never dropped continuously cannot be guaranteed from sparse snapshots."
+  ],
+  "new_baseline_probe": {
+    "status": "not acquired",
+    "reason": "No migration received in bounded 120-second single migration-only subscription",
+    "creator": null,
+    "creator_balance": null,
+    "observation_slot": null,
+    "receipt_to_observation_delay_s": null,
+    "getTokenAccountsByOwner_tested_for_new_creator": false,
+    "rules_changed": false
+  }
+}
